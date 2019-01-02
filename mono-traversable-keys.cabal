@@ -1,0 +1,30 @@
+cabal-version: 1.12
+name:           mono-traversable-keys
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/mono-traversable-keys#readme>
+homepage:       https://github.com/recursion-ninja/mono-traversable-keys#readme
+bug-reports:    https://github.com/recursion-ninja/mono-traversable-keys/issues
+author:         Alex Washburn
+maintainer:     hackage@recursion.ninja
+copyright:      2019 Alex Washburn
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/recursion-ninja/mono-traversable-keys
+
+library
+  exposed-modules:
+      Data.MonoTraversable.Keys
+  other-modules:
+      Paths_mono_traversable_keys
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
