@@ -1,5 +1,5 @@
 -- |
--- Type classes mirroring type-classes from 'Data.Key', but working with 
+-- Type-classes mirroring type-classes from 'Data.Key', but working with 
 -- monomorphic containers.
 --
 -- The motivation is that some commonly used data types (i.e., 'ByteString' and
@@ -91,10 +91,12 @@ import           Data.Semigroup (Semigroup, Option (..), Arg)
 import qualified Data.ByteString.Unsafe as SU
 import           Control.Monad.Trans.Identity (IdentityT)
 
+
 -- | 
--- Type family for getting the type of the key
--- of a monomorphic container.
-type family   MonoKey (f :: * -> *)
+-- Type family for getting the type of the key of a monomorphic container.
+type family MonoKey (f :: * -> *)
+
+-- Type instances
 
 type instance MonoKey (r -> a)             = ()
 type instance MonoKey [a]                  = Int
@@ -161,12 +163,12 @@ class MonoKeyed mono where
 
     -- | 
     -- Map over a monomorphic container
+    {-# INLINE omapWithKey #-}
     omapWithKey :: (MonoKey mono -> Element mono -> Element mono) -> mono -> mono
     
     default omapWithKey :: (Keyed f, Element (f a) ~ a, MonoKey (f a) ~ Key f, f a ~ mono)
                  => (MonoKey mono -> Element mono -> Element mono) -> mono -> mono
     omapWithKey = mapWithKey
-    {-# INLINE omapWithKey #-}
 
 
 -- |
@@ -181,31 +183,27 @@ class MonoKeyed mono where
 -- 'ozip' ('flip' (,)) x y = 'ozip' y x
 -- @
 class MonoFunctor mono => MonoZip mono where 
+    {-# MINIMAL ozipWith #-}
 
     ozipWith :: (Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
     ozipWith f a b = uncurry f <$> ozip a b
-
-#if __GLASGOW_HASKELL__ >= 708
-  {-# MINIMAL ozipWith #-}
-#endif
 
 
 -- |
 -- Monomorphic container that can be zipped together, merging thier pairs of 
 -- elements and corresponding keys.
 class (MonoKeyed mono, MonoZip mono) => MonoZipWithKey mono where
+    {-# MINIMAL ozipWithKey #-}
 
     ozipWithKey :: (MonoKey mono -> Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
     ozipWithKey f = ozap . omapWithKey f
 
-#if __GLASGOW_HASKELL__ >= 708
-  {-# MINIMAL ozipWithKey #-}
-#endif
 
 
 -- |
 -- Monomorphic container that can be indexed by a key for an element.
 class MonoLookup mono => MonoIndexable mono where
+    {-# MINIMAL oindex #-}
 
     oindex :: mono -> MonoKey mono -> Element mono
 
@@ -213,6 +211,7 @@ class MonoLookup mono => MonoIndexable mono where
 -- |
 -- Monomorphic container that can be querried by a key for an element.
 class MonoLookup mono where
+    {-# MINIMAL olookup #-}
  
     olookup :: MonoKey mono -> mono -> Maybe (Element mono)
 
@@ -220,6 +219,7 @@ class MonoLookup mono where
 -- |
 -- Monomorphic container that can adjust elements "in place".
 class MonoFunctor mono => MonoAdjustable mono where
+    {-# MINIMAL oadjust #-}
 
     oadjust :: (Element mono -> Element mono) -> MonoKey mono -> mono -> mono
 
@@ -231,6 +231,7 @@ class MonoFunctor mono => MonoAdjustable mono where
 -- Monomorphic containers that can be folded over thier pairs of elements and
 -- corresponding keys.
 class MonoFoldable mono => MonoFoldableWithKey mono where
+    {-# MINIMAL ofoldMapWithKey | ofoldrWithKey #-}
 
     toKeyedList :: t a -> [(MonoKey mono, Element mono)]
     toKeyedList = ofoldrWithKey (\k v t -> (k,v):t) []
@@ -244,10 +245,6 @@ class MonoFoldable mono => MonoFoldableWithKey mono where
     foldlWithKey :: (a -> MonoKey mono -> Element mono -> a) -> a -> mono -> a
     foldlWithKey f z t = appEndo (getDual (ofoldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
 
-#if __GLASGOW_HASKELL__ >= 708
-  {-# MINIMAL ofoldMapWithKey | ofoldrWithKey #-}
-#endif
-
 
 -- | 
 -- Monomorphic containers that can be traversed from left to right over thier pairs of elements and corresponding keys.
@@ -255,63 +252,104 @@ class MonoFoldable mono => MonoFoldableWithKey mono where
 -- NOTE: Due to limitations with the role system, GHC is yet unable to provide newtype-derivation of
 -- 'MonoTraversableWithKey'. See <https://stackoverflow.com/questions/49776924/newtype-deriving-issequence>.
 class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTraversableWithKey mono where
+    {-# MINIMAL otraverseWithKey #-}
   
     -- | 
     -- Map each key-element pair of a monomorphic container to an action,
     -- evaluate these actions from left to right, and collect the results.
-    otraverseWithKey :: Applicative f => (MonoKey mono -> Element mono -> f (Element mono) -> mono -> f mono
-
-    omapWithKeyM :: Monad m => (MonoKey mono -> Element mono -> m (Element mono) -> mono-> m mono
-    omapWithKeyM f = unwrapMonad . otraverseWithKey (fmap WrapMonad . f)
-
     {-# INLINE otraverseWithKey #-}
+    otraverseWithKey :: Applicative f => (MonoKey mono -> Element mono -> f (Element mono)) -> mono -> f mono
+
+    -- |
+    -- Like 'otraverse' but with a Monad constraint.
     {-# INLINE omapWithKeyM #-}
+    omapWithKeyM :: Monad m => (MonoKey mono -> Element mono -> m (Element mono)) -> mono-> m mono
+    omapWithKeyM f = unwrapMonad . otraverseWithKey (fmap WrapMonad . f)
 
 
 -- * Instances
 
 
 instance MonoTraversableWithKey BS.ByteString where
+
     otraverseWithKey f = fmap BS.pack . traverse f . BS.unpack
     {-# INLINE otraverseWithKey #-}
 #if !MIN_VERSION_base(4,8,0)
     omapWithKeyM f = liftM BS.pack . mapM f . BS.unpack
     {-# INLINE omapWithKeyM #-}
 #endif
+
+
 instance MonoTraversableWithKey BSL.ByteString where
+
     otraverseWithKey f = fmap BSL.pack . traverse f . BSL.unpack
     {-# INLINE otraverseWithKey #-}
 #if !MIN_VERSION_base(4,8,0)
     omapWithKeyM f = liftM BSL.pack . mapM f . BSL.unpack
 #endif
+
+
 instance MonoTraversableWithKey T.Text where
+
     otraverseWithKey f = fmap T.pack . traverse f . T.unpack
     {-# INLINE otraverseWithKey #-}
 #if !MIN_VERSION_base(4,8,0)
     omapWithKeyM f = liftM T.pack . mapM f . T.unpack
     {-# INLINE omapWithKeyM #-}
 #endif
+
+
 instance MonoTraversableWithKey TL.Text where
+
     otraverseWithKey f = fmap TL.pack . traverse f . TL.unpack
     {-# INLINE otraverseWithKey #-}
 #if !MIN_VERSION_base(4,8,0)
     omapWithKeyM f = liftM TL.pack . mapM f . TL.unpack
     {-# INLINE omapWithKeyM #-}
 #endif
+
+
 instance MonoTraversableWithKey [a]
+
+
 instance MonoTraversableWithKey (Maybe a)
+
+
 instance MonoTraversableWithKey (Tree a)
+
+
 instance MonoTraversableWithKey (Seq a)
+
+
 instance MonoTraversableWithKey (ViewL a)
+
+
 instance MonoTraversableWithKey (ViewR a)
+
+
 instance MonoTraversableWithKey (IntMap a)
+
+
 instance MonoTraversableWithKey (Option a)
+
+
 instance MonoTraversableWithKey (NonEmpty a)
+
+
 instance MonoTraversableWithKey (Identity a)
+
+
 instance MonoTraversableWithKey (Map k v)
+
+
 instance MonoTraversableWithKey (HashMap k v)
+
+
 instance MonoTraversableWithKey (Vector a)
+
+
 instance U.Unbox a => MonoTraversableWithKey (U.Vector a) where
+
     -- FIXME do something more efficient
     otraverseWithKey f = fmap U.fromList . traverse f . U.toList
 #if MIN_VERSION_base(4,8,0)
@@ -321,7 +359,10 @@ instance U.Unbox a => MonoTraversableWithKey (U.Vector a) where
 #endif
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
+
+
 instance VS.Storable a => MonoTraversableWithKey (VS.Vector a) where
+
     -- FIXME do something more efficient
     otraverseWithKey f = fmap VS.fromList . traverse f . VS.toList
 #if MIN_VERSION_base(4,8,0)
@@ -343,72 +384,180 @@ instance MonoTraversableWithKey (Either a b) where
 #endif
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
+
+
 instance MonoTraversableWithKey (a, b)
+
+
 instance MonoTraversableWithKey (Const m a)
+
+
 instance Traversable f => MonoTraversableWithKey (MaybeT f a)
+
+
 instance Traversable f => MonoTraversableWithKey (ListT f a)
+
+
 instance Traversable f => MonoTraversableWithKey (IdentityT f a)
+
+
 instance Traversable f => MonoTraversableWithKey (WriterT w f a)
+
+
 instance Traversable f => MonoTraversableWithKey (S.WriterT w f a)
+
+
 instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a)
+
+
 instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a)
 
 
-instance MonoFunctor BS.ByteString where
-    omapWithKey = BS.map
-    {-# INLINE omapWithKey #-}
-instance MonoFunctor BSL.ByteString where
-    omapWithKey = BSL.map
-    {-# INLINE omapWithKey #-}
-instance MonoFunctor T.Text where
-    omapWithKey = T.map
-    {-# INLINE omapWithKey #-}
-instance MonoFunctor TL.Text where
-    omapWithKey = TL.map
-    {-# INLINE omapWithKey #-}
-instance MonoFunctor [a]
-instance MonoFunctor (IO a)
-instance MonoFunctor (ZipList a)
-instance MonoFunctor (Maybe a)
-instance MonoFunctor (Tree a)
-instance MonoFunctor (Seq a)
-instance MonoFunctor (ViewL a)
-instance MonoFunctor (ViewR a)
-instance MonoFunctor (IntMap a)
-instance MonoFunctor (Option a)
-instance MonoFunctor (NonEmpty a)
-instance MonoFunctor (Identity a)
-instance MonoFunctor (r -> a)
-instance MonoFunctor (Either a b)
-instance MonoFunctor (a, b)
-instance MonoFunctor (Const m a)
-instance Monad m => MonoFunctor (WrappedMonad m a)
-instance MonoFunctor (Map k v)
-instance MonoFunctor (HashMap k v)
-instance MonoFunctor (Vector a)
-instance MonoFunctor (Arg a b)
-instance Arrow a => MonoFunctor (WrappedArrow a b c)
-instance Functor m => MonoFunctor (MaybeT m a)
-instance Functor m => MonoFunctor (ListT m a)
-instance Functor m => MonoFunctor (IdentityT m a)
-instance Functor m => MonoFunctor (WriterT w m a)
-instance Functor m => MonoFunctor (S.WriterT w m a)
-instance Functor m => MonoFunctor (StateT s m a)
-instance Functor m => MonoFunctor (S.StateT s m a)
-instance Functor m => MonoFunctor (RWST r w s m a)
-instance Functor m => MonoFunctor (S.RWST r w s m a)
-instance Functor m => MonoFunctor (ReaderT r m a)
-instance Functor m => MonoFunctor (ContT r m a)
-instance (Functor f, Functor g) => MonoFunctor (Compose f g a)
-instance (Functor f, Functor g) => MonoFunctor (Product f g a)
-instance U.Unbox a => MonoFunctor (U.Vector a) where
-    omapWithKey = U.map
-    {-# INLINE omapWithKey #-}
-instance VS.Storable a => MonoFunctor (VS.Vector a) where
-    omapWithKey = VS.map
-    {-# INLINE omapWithKey #-}
 
--- | @'replaceElem' old new@ replaces all @old@ elements with @new@.
+
+instance MonoKeyed BS.ByteString where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = BS.map
+
+
+instance MonoKeyed BSL.ByteString where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = BSL.map
+
+
+instance MonoKeyed T.Text where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = T.map
+
+
+instance MonoKeyed TL.Text where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = TL.map
+
+
+instance MonoKeyed [a]
+
+
+instance MonoKeyed (IO a)
+
+
+instance MonoKeyed (ZipList a)
+
+
+instance MonoKeyed (Maybe a)
+
+
+instance MonoKeyed (Tree a)
+
+
+instance MonoKeyed (Seq a)
+
+
+instance MonoKeyed (ViewL a)
+
+
+instance MonoKeyed (ViewR a)
+
+
+instance MonoKeyed (IntMap a)
+
+
+instance MonoKeyed (Option a)
+
+
+instance MonoKeyed (NonEmpty a)
+
+
+instance MonoKeyed (Identity a)
+
+
+instance MonoKeyed (r -> a)
+
+
+instance MonoKeyed (Either a b)
+
+
+instance MonoKeyed (a, b)
+
+
+instance MonoKeyed (Const m a)
+
+
+instance Monad m => MonoKeyed (WrappedMonad m a)
+
+
+instance MonoKeyed (Map k v)
+
+
+instance MonoKeyed (HashMap k v)
+
+
+instance MonoKeyed (Vector a)
+
+
+instance MonoKeyed (Arg a b)
+
+
+instance Arrow a => MonoKeyed (WrappedArrow a b c)
+
+
+instance Functor m => MonoKeyed (MaybeT m a)
+
+
+instance Functor m => MonoKeyed (ListT m a)
+
+
+instance Functor m => MonoKeyed (IdentityT m a)
+
+
+instance Functor m => MonoKeyed (WriterT w m a)
+
+
+instance Functor m => MonoKeyed (S.WriterT w m a)
+
+
+instance Functor m => MonoKeyed (StateT s m a)
+
+
+instance Functor m => MonoKeyed (S.StateT s m a)
+
+
+instance Functor m => MonoKeyed (RWST r w s m a)
+
+
+instance Functor m => MonoKeyed (S.RWST r w s m a)
+
+
+instance Functor m => MonoKeyed (ReaderT r m a)
+
+
+instance Functor m => MonoKeyed (ContT r m a)
+
+
+instance (Functor f, Functor g) => MonoKeyed (Compose f g a)
+
+
+instance (Functor f, Functor g) => MonoKeyed (Product f g a)
+
+
+instance U.Unbox a => MonoKeyed (U.Vector a) where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = U.map
+
+
+instance VS.Storable a => MonoKeyed (VS.Vector a) where
+
+    {-# INLINE omapWithKey #-}
+    omapWithKey = VS.map
+
+{-
+-- |
+-- @'replaceElem' old new@ replaces all @old@ elements with @new@.
 --
 -- @since 1.0.1
 replaceElem :: (MonoFunctor mono, Eq (Element mono)) => Element mono -> Element mono -> mono -> mono
@@ -439,8 +588,11 @@ oforM :: (MonoTraversable mono, Monad f) => mono -> (Element mono -> f (Element 
 #endif
 oforM = flip omapWithKeyM
 {-# INLINE oforM #-}
+-}
 
--- | A strict left fold, together with an unwrap function.
+
+-- |
+-- A strict left fold, together with an unwrap function.
 --
 -- This is convenient when the accumulator value is not the same as the final
 -- expected type. It is provided mainly for integration with the @foldl@
@@ -463,6 +615,7 @@ ofoldWithKeyMUnwrap f mx unwrap mono = do
     x <- mx
     x' <- ofoldlM f x mono
     unwrap x'
+
 
 instance MonoFoldableWithKey S.ByteString where
 
