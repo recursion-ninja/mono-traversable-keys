@@ -50,7 +50,7 @@ import Data.Int (Int, Int64)
 import           GHC.Exts             (build)
 import           Prelude              (Bool (..), Bounded(..), const, Char, Enum(..), flip, IO, Maybe (..), Either (..),
                                        (+), Integral, Ordering (..), compare, fromIntegral, Num, (>=),
-                                       (==), seq, otherwise, Eq, Ord, (-), (*), uncurry, ($))
+                                       (==), seq, otherwise, Eq, Ord, (-), (*), uncurry, ($), snd)
 import qualified Prelude
 import qualified Data.ByteString.Internal as Unsafe
 import qualified Foreign.ForeignPtr.Unsafe as Unsafe
@@ -73,7 +73,7 @@ import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.Vector (Vector)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Control.Monad.Trans.List (ListT)
+import           Control.Monad.Trans.List (ListT(..))
 import           Control.Monad.Trans.Writer (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as S (WriterT)
 import           Control.Monad.Trans.State (StateT(..))
@@ -101,7 +101,7 @@ import           Data.Void
 import           Control.Monad.Trans.Identity (IdentityT)
 import           GHC.Generics
 import           Data.MonoTraversable (Element, MonoFunctor(..), MonoFoldable(..), MonoTraversable(..))
-
+import           Data.Vector.Instances
 
 -- | 
 -- Type family for getting the type of the key of a monomorphic container.
@@ -423,34 +423,48 @@ instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a
 instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a)
 
 
-instance MonoKeyed BS.ByteString where
+omapWithUnitKey f = omap (f ())
 
+
+instance MonoKeyed BS.ByteString where
     {-# INLINE omapWithKey #-}
-    omapWithKey = BS.map
+
+    omapWithKey f = snd . BS.mapAccumL g 0
+      where
+        g k v = (succ k, f k v)
 
 
 instance MonoKeyed BSL.ByteString where
-
     {-# INLINE omapWithKey #-}
-    omapWithKey = BSL.map
+
+    omapWithKey f = snd . BSL.mapAccumL g 0
+      where
+        g k v = (succ k, f k v)
 
 
 instance MonoKeyed T.Text where
-
     {-# INLINE omapWithKey #-}
-    omapWithKey = T.map
+
+    omapWithKey f = snd . T.mapAccumL g 0
+      where
+        g k v = (succ k, f k v)
 
 
 instance MonoKeyed TL.Text where
-
     {-# INLINE omapWithKey #-}
-    omapWithKey = TL.map
+
+    omapWithKey f = snd . TL.mapAccumL g 0
+      where
+        g k v = (succ k, f k v)
 
 
 instance MonoKeyed [a]
 
 
-instance MonoKeyed (IO a)
+instance MonoKeyed (IO a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
 instance MonoKeyed (ZipList a)
@@ -465,16 +479,25 @@ instance MonoKeyed (Tree a)
 instance MonoKeyed (Seq a)
 
 
-instance MonoKeyed (ViewL a)
+instance MonoKeyed (ViewL a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance MonoKeyed (ViewR a)
+instance MonoKeyed (ViewR a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
 instance MonoKeyed (IntMap a)
 
 
-instance MonoKeyed (Option a)
+instance MonoKeyed (Option a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
 instance MonoKeyed (NonEmpty a)
@@ -483,19 +506,34 @@ instance MonoKeyed (NonEmpty a)
 instance MonoKeyed (Identity a)
 
 
-instance MonoKeyed (r -> a)
+instance MonoKeyed (r -> a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance MonoKeyed (Either a b)
+instance MonoKeyed (Either a b) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance MonoKeyed (a, b)
+instance MonoKeyed (a, b) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance MonoKeyed (Const m a)
+instance MonoKeyed (Const m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Monad m => MonoKeyed (WrappedMonad m a)
+instance Monad m => MonoKeyed (WrappedMonad m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
 instance MonoKeyed (Map k v)
@@ -507,49 +545,94 @@ instance MonoKeyed (HashMap k v)
 instance MonoKeyed (Vector a)
 
 
-instance MonoKeyed (Arg a b)
+instance MonoKeyed (Arg a b) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Arrow a => MonoKeyed (WrappedArrow a b c)
+instance Arrow a => MonoKeyed (WrappedArrow a b c) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (MaybeT m a)
+instance Functor m => MonoKeyed (MaybeT m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (ListT m a)
+instance Functor m => MonoKeyed (ListT m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey f = ListT . fmap (omapWithKey f) . runListT
 
 
-instance Functor m => MonoKeyed (IdentityT m a)
+instance Functor m => MonoKeyed (IdentityT m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (WriterT w m a)
+instance Functor m => MonoKeyed (WriterT w m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (S.WriterT w m a)
+instance Functor m => MonoKeyed (S.WriterT w m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (StateT s m a)
+instance Functor m => MonoKeyed (StateT s m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (S.StateT s m a)
+instance Functor m => MonoKeyed (S.StateT s m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (RWST r w s m a)
+instance Functor m => MonoKeyed (RWST r w s m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (S.RWST r w s m a)
+instance Functor m => MonoKeyed (S.RWST r w s m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (ReaderT r m a)
+instance Functor m => MonoKeyed (ReaderT r m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance Functor m => MonoKeyed (ContT r m a)
+instance Functor m => MonoKeyed (ContT r m a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance (Functor f, Functor g) => MonoKeyed (Compose f g a)
+instance (Functor f, Functor g) => MonoKeyed (Compose f g a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
-instance (Functor f, Functor g) => MonoKeyed (Product f g a)
+instance (Functor f, Functor g) => MonoKeyed (Product f g a) where
+    {-# INLINE omapWithKey #-}
+
+    omapWithKey = omapWithUnitKey
 
 
 instance U.Unbox a => MonoKeyed (U.Vector a) where
