@@ -28,11 +28,7 @@ module Data.MonoTraversable.Keys where
 import           Control.Applicative
 import           Control.Category
 import           Control.Comonad.Cofree 
-#if MIN_VERSION_base(4,8,0)
-import           Control.Monad        (Monad (..))
-#else
 import           Control.Monad        (Monad (..), liftM)
-#endif
 import           Control.Monad.Free
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -102,6 +98,8 @@ import           Control.Monad.Trans.Identity (IdentityT)
 import           GHC.Generics
 import           Data.MonoTraversable (Element, MonoFunctor(..), MonoFoldable(..), MonoTraversable(..))
 import           Data.Vector.Instances
+import           Data.Semigroup (Dual(..), Endo(..))
+
 
 -- | 
 -- Type family for getting the type of the key of a monomorphic container.
@@ -197,7 +195,7 @@ class MonoFunctor mono => MonoZip mono where
     {-# MINIMAL ozipWith #-}
 
     ozipWith :: (Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
-    ozipWith f a b = uncurry f <$> ozip a b
+--    ozipWith f a b = uncurry f <$> ozip a b
 
 
 -- |
@@ -207,7 +205,7 @@ class (MonoKeyed mono, MonoZip mono) => MonoZipWithKey mono where
     {-# MINIMAL ozipWithKey #-}
 
     ozipWithKey :: (MonoKey mono -> Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
-    ozipWithKey f = ozap . omapWithKey f
+--    ozipWithKey f = ozap . omapWithKey f
 
 
 -- |
@@ -267,7 +265,7 @@ class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTr
     -- | 
     -- Map each key-element pair of a monomorphic container to an action,
     -- evaluate these actions from left to right, and collect the results.
-    {-# INLINE otraverseWithKey #-}
+--    {-# INLINE otraverseWithKey #-}
     otraverseWithKey :: Applicative f => (MonoKey mono -> Element mono -> f (Element mono)) -> mono -> f mono
 
     -- |
@@ -281,42 +279,39 @@ class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTr
 
 
 instance MonoTraversableWithKey BS.ByteString where
-
-    otraverseWithKey f = fmap BS.pack . traverse f . BS.unpack
     {-# INLINE otraverseWithKey #-}
-#if !MIN_VERSION_base(4,8,0)
-    omapWithKeyM f = liftM BS.pack . mapM f . BS.unpack
     {-# INLINE omapWithKeyM #-}
-#endif
+  
+    otraverseWithKey f = fmap BS.pack . traverseWithKey f . BS.unpack
+
+    omapWithKeyM f = liftM BS.pack . mapWithKeyM f . BS.unpack
 
 
 instance MonoTraversableWithKey BSL.ByteString where
-
-    otraverseWithKey f = fmap BSL.pack . traverse f . BSL.unpack
     {-# INLINE otraverseWithKey #-}
-#if !MIN_VERSION_base(4,8,0)
-    omapWithKeyM f = liftM BSL.pack . mapM f . BSL.unpack
-#endif
+    {-# INLINE omapWithKeyM #-}
+
+    otraverseWithKey f = fmap BSL.pack . traverseWithKey f . BSL.unpack
+
+    omapWithKeyM f = liftM BSL.pack . mapWithKeyM f . BSL.unpack
 
 
 instance MonoTraversableWithKey T.Text where
-
-    otraverseWithKey f = fmap T.pack . traverse f . T.unpack
     {-# INLINE otraverseWithKey #-}
-#if !MIN_VERSION_base(4,8,0)
-    omapWithKeyM f = liftM T.pack . mapM f . T.unpack
     {-# INLINE omapWithKeyM #-}
-#endif
+
+    otraverseWithKey f = fmap T.pack . traverseWithKey f . T.unpack
+
+    omapWithKeyM f = liftM T.pack . mapWithKeyM f . T.unpack
 
 
 instance MonoTraversableWithKey TL.Text where
-
-    otraverseWithKey f = fmap TL.pack . traverse f . TL.unpack
     {-# INLINE otraverseWithKey #-}
-#if !MIN_VERSION_base(4,8,0)
-    omapWithKeyM f = liftM TL.pack . mapM f . TL.unpack
     {-# INLINE omapWithKeyM #-}
-#endif
+
+    otraverseWithKey f = fmap TL.pack . traverseWithKey f . TL.unpack
+
+    omapWithKeyM f = liftM TL.pack . mapWithKeyM f . TL.unpack
 
 
 instance MonoTraversableWithKey [a]
@@ -359,41 +354,31 @@ instance MonoTraversableWithKey (Vector a)
 
 
 instance U.Unbox a => MonoTraversableWithKey (U.Vector a) where
-
-    -- FIXME do something more efficient
-    otraverseWithKey f = fmap U.fromList . traverse f . U.toList
-#if MIN_VERSION_base(4,8,0)
-    omapWithKeyM = otraverseWithKey
-#else
-    omapWithKeyM = U.mapM
-#endif
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
+
+    otraverseWithKey f v = fmap (U.fromListN (U.length v)) . traverseWithKey f $ U.toList v
+
+    omapWithKeyM = otraverseWithKey
 
 
 instance VS.Storable a => MonoTraversableWithKey (VS.Vector a) where
+    {-# INLINE otraverseWithKey #-}
+    {-# INLINE omapWithKeyM #-}
 
-    -- FIXME do something more efficient
-    otraverseWithKey f = fmap VS.fromList . traverse f . VS.toList
-#if MIN_VERSION_base(4,8,0)
+    otraverseWithKey f v = fmap (VS.fromListN (VS.length v)) . traverseWithKey f $ VS.toList v
+
     omapWithKeyM = otraverseWithKey
-#else
-    omapWithKeyM = VS.mapM
-#endif
-    {-# INLINE otraverseWithKey #-}
-    {-# INLINE omapWithKeyM #-}
+
+
 instance MonoTraversableWithKey (Either a b) where
-    otraverseWithKey _ (Left a) = pure (Left a)
-    otraverseWithKey f (Right b) = fmap Right (f b)
-#if MIN_VERSION_base(4,8,0)
-    omapWithKeyM _ (Left a) = pure (Left a)
-    omapWithKeyM f (Right b) = fmap Right (f b)
-#else
-    omapWithKeyM _ (Left a) = return (Left a)
-    omapWithKeyM f (Right b) = liftM Right (f b)
-#endif
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
+
+    otraverseWithKey _ (Left  a) = pure $ Left a
+    otraverseWithKey f (Right b) = fmap Right $ f () b
+
+    omapWithKeyM = otraverseWithKey
 
 
 instance MonoTraversableWithKey (a, b)
