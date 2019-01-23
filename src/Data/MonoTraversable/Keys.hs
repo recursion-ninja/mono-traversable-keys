@@ -239,18 +239,29 @@ class MonoFunctor mono => MonoAdjustable mono where
 -- Monomorphic containers that can be folded over thier pairs of elements and
 -- corresponding keys.
 class MonoFoldable mono => MonoFoldableWithKey mono where
-    {-# MINIMAL ofoldMapWithKey | ofoldrWithKey #-}
+    {-# MINIMAL ofoldMapWithKey | ofoldlWithKey #-}
 
     otoKeyedList :: mono -> [(MonoKey mono, Element mono)]
     otoKeyedList = ofoldrWithKey (\k v t -> (k,v):t) []
-
+ 
     ofoldMapWithKey :: Monoid m => (MonoKey mono -> Element mono -> m) -> mono -> m
-    ofoldMapWithKey f = ofoldrWithKey (\k v -> mappend (f k v)) mempty
+    ofoldMapWithKey f = ofoldlWithKey (\a k v -> mappend (f k v) a) mempty
 
     ofoldrWithKey :: (MonoKey mono -> Element mono -> a -> a) -> a -> mono -> a
     ofoldrWithKey f z t = appEndo (ofoldMapWithKey (\k v -> Endo (f k v)) t) z
 
     ofoldlWithKey :: (a -> MonoKey mono -> Element mono -> a) -> a -> mono -> a
+{--
+    default ofoldlWithKey
+      :: ( Keyed f
+         , Element (f a) ~ a
+         , MonoKey (f a) ~ Key f
+         , f a ~ mono
+         , FoldableWithKey f
+         )
+      => (a -> MonoKey mono -> Element mono -> a) -> a -> mono -> a
+    ofoldlWithKey = foldlWithKey
+--}
     ofoldlWithKey f z t = appEndo (getDual (ofoldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
 
 
@@ -267,12 +278,18 @@ class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTr
     -- evaluate these actions from left to right, and collect the results.
 --    {-# INLINE otraverseWithKey #-}
     otraverseWithKey :: Applicative f => (MonoKey mono -> Element mono -> f (Element mono)) -> mono -> f mono
+    default otraverseWithKey :: (Applicative g, Keyed f, Element (f a) ~ a, MonoKey (f a) ~ Key f, f a ~ mono, TraversableWithKey f)
+      => (MonoKey mono -> Element mono -> g (Element mono)) -> mono -> g mono
+    otraverseWithKey = traverseWithKey
 
     -- |
     -- Like 'otraverse' but with a Monad constraint.
     {-# INLINE omapWithKeyM #-}
     omapWithKeyM :: Monad m => (MonoKey mono -> Element mono -> m (Element mono)) -> mono-> m mono
     omapWithKeyM f = unwrapMonad . otraverseWithKey (fmap WrapMonad . f)
+
+
+monoTraversableWithUnitKey f = otraverse (f ())
 
 
 -- * Instances
@@ -314,43 +331,82 @@ instance MonoTraversableWithKey TL.Text where
     omapWithKeyM f = liftM TL.pack . mapWithKeyM f . TL.unpack
 
 
-instance MonoTraversableWithKey [a]
+instance MonoTraversableWithKey [a] where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Maybe a)
+instance MonoTraversableWithKey (Maybe a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Tree a)
+instance MonoTraversableWithKey (Tree a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Seq a)
+instance MonoTraversableWithKey (Seq a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (ViewL a)
+instance MonoTraversableWithKey (ViewL a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance MonoTraversableWithKey (ViewR a)
+instance MonoTraversableWithKey (ViewR a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance MonoTraversableWithKey (IntMap a)
+instance MonoTraversableWithKey (IntMap a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Option a)
+instance MonoTraversableWithKey (Option a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance MonoTraversableWithKey (NonEmpty a)
+instance MonoTraversableWithKey (NonEmpty a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Identity a)
+instance MonoTraversableWithKey (Identity a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Map k v)
+instance MonoTraversableWithKey (Map k v) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (HashMap k v)
+instance MonoTraversableWithKey (HashMap k v) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
-instance MonoTraversableWithKey (Vector a)
+instance MonoTraversableWithKey (Vector a) where
+    {-# INLINE otraverseWithKey #-}
+
+    otraverseWithKey = traverseWithKey
 
 
 instance U.Unbox a => MonoTraversableWithKey (U.Vector a) where
@@ -381,31 +437,57 @@ instance MonoTraversableWithKey (Either a b) where
     omapWithKeyM = otraverseWithKey
 
 
-instance MonoTraversableWithKey (a, b)
+instance MonoTraversableWithKey (a, b) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance MonoTraversableWithKey (Const m a)
+instance MonoTraversableWithKey (Const m a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance Traversable f => MonoTraversableWithKey (MaybeT f a)
+instance Traversable f => MonoTraversableWithKey (MaybeT f a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance Traversable f => MonoTraversableWithKey (ListT f a)
+instance Traversable f => MonoTraversableWithKey (ListT f a) where
+
+   otraverseWithKey f = fmap ListT . traverse (traverseWithKey f) . runListT
 
 
-instance Traversable f => MonoTraversableWithKey (IdentityT f a)
+instance Traversable f => MonoTraversableWithKey (IdentityT f a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance Traversable f => MonoTraversableWithKey (WriterT w f a)
+instance Traversable f => MonoTraversableWithKey (WriterT w f a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance Traversable f => MonoTraversableWithKey (S.WriterT w f a)
+instance Traversable f => MonoTraversableWithKey (S.WriterT w f a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a)
+instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
-instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a)
+instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a) where
+    {-# INLINE otraverseWithKey #-}
+  
+    otraverseWithKey = monoTraversableWithUnitKey
 
 
 omapWithUnitKey f = omap (f ())
@@ -746,7 +828,17 @@ instance MonoFoldableWithKey (Maybe a) where
     ofoldMapWithKey = monoFoldableWithUnitKey
     
 
-instance MonoFoldableWithKey (Tree a)
+instance MonoFoldableWithKey (Tree a) where
+    {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldMapWithKey = foldMapWithKey
+
+    ofoldrWithKey   = foldrWithKey
+
+    ofoldlWithKey   = foldlWithKey
+
 
 
 instance MonoFoldableWithKey (Seq a) where
