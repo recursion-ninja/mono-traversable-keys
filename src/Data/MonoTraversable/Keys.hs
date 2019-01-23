@@ -20,19 +20,23 @@
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
 {-# LANGUAGE TypeFamilies            #-}
+{-# LANGUAGE TypeOperators           #-}
 {-# LANGUAGE UndecidableInstances    #-}
 
 module Data.MonoTraversable.Keys where
 
 import           Control.Applicative
 import           Control.Category
+import           Control.Comonad.Cofree 
 #if MIN_VERSION_base(4,8,0)
 import           Control.Monad        (Monad (..))
 #else
 import           Control.Monad        (Monad (..), liftM)
 #endif
+import           Control.Monad.Free
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Foldable           (Foldable)
 import qualified Data.Foldable        as F
 import           Data.Functor
 import           Data.Key
@@ -44,9 +48,9 @@ import           Data.Traversable
 import           Data.Word            (Word8)
 import Data.Int (Int, Int64)
 import           GHC.Exts             (build)
-import           Prelude              (Bool (..), const, Char, flip, IO, Maybe (..), Either (..),
+import           Prelude              (Bool (..), Bounded(..), const, Char, Enum(..), flip, IO, Maybe (..), Either (..),
                                        (+), Integral, Ordering (..), compare, fromIntegral, Num, (>=),
-                                       (==), seq, otherwise, Eq, Ord, (-), (*))
+                                       (==), seq, otherwise, Eq, Ord, (-), (*), uncurry, ($))
 import qualified Prelude
 import qualified Data.ByteString.Internal as Unsafe
 import qualified Foreign.ForeignPtr.Unsafe as Unsafe
@@ -58,6 +62,7 @@ import           Data.Tree (Tree (..))
 import           Data.Sequence (Seq, ViewL (..), ViewR (..))
 import qualified Data.Sequence as Seq
 import           Data.IntMap (IntMap)
+import qualified Data.IntMap   as IM
 import           Data.IntSet (IntSet)
 import qualified Data.List as List
 import           Data.List.NonEmpty (NonEmpty)
@@ -65,13 +70,14 @@ import           Data.Functor.Identity (Identity)
 import           Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
 import           Data.Vector (Vector)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Control.Monad.Trans.List (ListT)
 import           Control.Monad.Trans.Writer (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as S (WriterT)
 import           Control.Monad.Trans.State (StateT(..))
-import qualified Control.Monad.Trans.State.Strict as S (StateT(..))
+import qualified Control.Monad.Trans.State.Strict as S (StateT(..), State, get, modify, evalState)
 import           Control.Monad.Trans.RWS (RWST(..))
 import qualified Control.Monad.Trans.RWS.Strict as S (RWST(..))
 import           Control.Monad.Trans.Reader (ReaderT)
@@ -81,7 +87,7 @@ import           Data.Functor.Product (Product)
 import           Data.Set (Set)
 import qualified Data.Set as Set
 import           Data.HashSet (HashSet)
-import qualified Data.HashSet as HashSet
+import qualified Data.HashSet as HS
 import           Data.Hashable (Hashable)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
@@ -89,30 +95,35 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.IntSet as IntSet
 import           Data.Semigroup (Semigroup, Option (..), Arg)
 import qualified Data.ByteString.Unsafe as SU
+import           Data.Proxy
+import           Data.Tagged
+import           Data.Void
 import           Control.Monad.Trans.Identity (IdentityT)
+import           GHC.Generics
+import           Data.MonoTraversable (Element, MonoFunctor(..), MonoFoldable(..), MonoTraversable(..))
 
 
 -- | 
 -- Type family for getting the type of the key of a monomorphic container.
-type family MonoKey (f :: * -> *)
+type family MonoKey key
 
 -- Type instances
 
 type instance MonoKey (r -> a)             = ()
 type instance MonoKey [a]                  = Int
 type instance MonoKey (a, b)               = ()
-type instance MonoKey (g :.: f)            = (MonoKey g, MonoKey f)
-type instance MonoKey (f :*: g)            = Either (MonoKey f) (MonoKey g)
-type instance MonoKey (f :+: g)            = Either (MonoKey f) (MonoKey g)
+type instance MonoKey ((g :.: f) a)        = Key (f :.: g)
+type instance MonoKey ((f :*: g) a)        = Key (f :*: g)
+type instance MonoKey ((f :+: g) a)        = Key (f :+: g)
 type instance MonoKey (Arg a b)            = ()
 type instance MonoKey BS.ByteString        = Int
 type instance MonoKey BSL.ByteString       = Int
-type instance MonoKey (Cofree f)           = Seq (MonoKey f)
+type instance MonoKey (Cofree f a)         = Key (Cofree f)
 type instance MonoKey (Const m a)          = ()
 type instance MonoKey (ContT r m a)        = ()
 type instance MonoKey (Compose f g a)      = ()
 type instance MonoKey (Either a b)         = ()
-type instance MonoKey (Free f)             = Seq (MonoKey f)
+type instance MonoKey (Free f a)           = Key (Free f)
 type instance MonoKey (HashMap k v)        = k
 type instance MonoKey (HashSet e)          = Int
 type instance MonoKey (Identity a)         = ()
@@ -120,31 +131,31 @@ type instance MonoKey (IdentityT m a)      = ()
 type instance MonoKey (IntMap a)           = Int
 type instance MonoKey IntSet               = Int
 type instance MonoKey (IO a)               = ()
-type instance MonoKey (K1 i c)             = Void
+type instance MonoKey (K1 i c a)           = Key (K1 i c)
 type instance MonoKey (ListT m a)          = Int
 type instance MonoKey (Map k v)            = k
 type instance MonoKey (Maybe a)            = ()
 type instance MonoKey (MaybeT m a)         = ()
-type instance MonoKey (M1 i c f)           = MonoKey f
-type instance MonoKey NonEmpty             = Int
+type instance MonoKey (M1 i c f a)         = Key (M1 i c f)
+type instance MonoKey (NonEmpty a)         = Key NonEmpty
 type instance MonoKey (Option a)           = ()
-type instance MonoKey Par1                 = ()
+type instance MonoKey (Par1 a)             = ()
 type instance MonoKey (Product f g a)      = ()
-type instance MonoKey Proxy                = Void
-type instance MonoKey (Tagged a)           = ()
+type instance MonoKey (Proxy a)            = Void
 type instance MonoKey (ReaderT r m a)      = ()
-type instance MonoKey (Rec1 f)             = MonoKey f
+type instance MonoKey (Rec1 f a)           = Key (Rec1 f)
 type instance MonoKey (RWST r w s m a)     = ()
 type instance MonoKey (S.RWST r w s m a)   = ()
 type instance MonoKey (Seq a)              = Int
 type instance MonoKey (Set e)              = Int
 type instance MonoKey (StateT s m a)       = ()
 type instance MonoKey (S.StateT s m a)     = ()
+type instance MonoKey (Tagged a b)         = ()
 type instance MonoKey T.Text               = Int
 type instance MonoKey TL.Text              = Int
-type instance MonoKey Tree                 = Seq Int
-type instance MonoKey U1                   = Void
-type instance MonoKey V1                   = Void
+type instance MonoKey (Tree a)             = Seq Int
+type instance MonoKey (U1 a)               = Void
+type instance MonoKey (V1 a)               = Void
 type instance MonoKey (Vector a)           = Int
 type instance MonoKey (U.Vector a)         = Int
 type instance MonoKey (VS.Vector a)        = Int
@@ -199,7 +210,6 @@ class (MonoKeyed mono, MonoZip mono) => MonoZipWithKey mono where
     ozipWithKey f = ozap . omapWithKey f
 
 
-
 -- |
 -- Monomorphic container that can be indexed by a key for an element.
 class MonoLookup mono => MonoIndexable mono where
@@ -233,17 +243,17 @@ class MonoFunctor mono => MonoAdjustable mono where
 class MonoFoldable mono => MonoFoldableWithKey mono where
     {-# MINIMAL ofoldMapWithKey | ofoldrWithKey #-}
 
-    toKeyedList :: t a -> [(MonoKey mono, Element mono)]
-    toKeyedList = ofoldrWithKey (\k v t -> (k,v):t) []
+    otoKeyedList :: mono -> [(MonoKey mono, Element mono)]
+    otoKeyedList = ofoldrWithKey (\k v t -> (k,v):t) []
 
-    foldMapWithKey :: Monoid m => (MonoKey mono -> Element mono -> m) -> mono -> m
-    foldMapWithKey f = ofoldrWithKey (\k v -> mappend (f k v)) mempty
+    ofoldMapWithKey :: Monoid m => (MonoKey mono -> Element mono -> m) -> mono -> m
+    ofoldMapWithKey f = ofoldrWithKey (\k v -> mappend (f k v)) mempty
 
-    foldrWithKey :: (MonoKey mono -> Element mono -> a -> a) -> a -> mono -> a
-    foldrWithKey f z t = appEndo (ofoldMapWithKey (\k v -> Endo (f k v)) t) z
+    ofoldrWithKey :: (MonoKey mono -> Element mono -> a -> a) -> a -> mono -> a
+    ofoldrWithKey f z t = appEndo (ofoldMapWithKey (\k v -> Endo (f k v)) t) z
 
-    foldlWithKey :: (a -> MonoKey mono -> Element mono -> a) -> a -> mono -> a
-    foldlWithKey f z t = appEndo (getDual (ofoldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
+    ofoldlWithKey :: (a -> MonoKey mono -> Element mono -> a) -> a -> mono -> a
+    ofoldlWithKey f z t = appEndo (getDual (ofoldMapWithKey (\k a -> Dual (Endo (\b -> f b k a))) t)) z
 
 
 -- | 
@@ -413,8 +423,6 @@ instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a
 instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a)
 
 
-
-
 instance MonoKeyed BS.ByteString where
 
     {-# INLINE omapWithKey #-}
@@ -547,13 +555,13 @@ instance (Functor f, Functor g) => MonoKeyed (Product f g a)
 instance U.Unbox a => MonoKeyed (U.Vector a) where
 
     {-# INLINE omapWithKey #-}
-    omapWithKey = U.map
+    omapWithKey = U.imap
 
 
 instance VS.Storable a => MonoKeyed (VS.Vector a) where
 
     {-# INLINE omapWithKey #-}
-    omapWithKey = VS.map
+    omapWithKey = VS.imap
 
 {-
 -- |
@@ -617,659 +625,237 @@ ofoldWithKeyMUnwrap f mx unwrap mono = do
     unwrap x'
 
 
-instance MonoFoldableWithKey S.ByteString where
+monoFoldableWithIntegralKey
+  :: ( Bounded i
+     , Enum i
+     , MonoFoldable mono
+     )
+  => (a -> i -> Element mono -> a) -> a -> mono -> a
+monoFoldableWithIntegralKey f z = (`S.evalState` minBound) . ofoldlM g z
+  where 
+    g a e = do
+        k <- S.get
+        S.modify succ
+        return $ f a k e
 
-    ofoldMap f = ofoldr (mappend . f) mempty
 
-    ofoldr = S.foldr
+monoFoldableWithUnitKey f = ofoldMap (f ())
 
-    ofoldl' = S.foldl'
 
-    otoList = S.unpack
+instance MonoFoldableWithKey BS.ByteString where
+    {-# INLINE ofoldlWithKey #-}
 
-    oall = S.all
+    ofoldlWithKey  = monoFoldableWithIntegralKey
 
-    oany = S.any
-
-    onull = S.null
-
-    olength = S.length
-
-    oelem = S.elem
-
-    onotElem = S.notElem
-
-    omapWithKeyM_ f (Unsafe.PS fptr offset len) = do
-        let start = Unsafe.unsafeForeignPtrToPtr fptr `plusPtr` offset
-            end = start `plusPtr` len
-            loop ptr
-                | ptr >= end = evil (touchForeignPtr fptr) `seq`
-#if MIN_VERSION_base(4,8,0)
-                    pure ()
-#else
-                    return ()
-#endif
-                | otherwise =
-#if MIN_VERSION_base(4,8,0)
-                    f (evil (peek ptr)) *>
-                    loop (ptr `plusPtr` 1)
-#else
-                    f (evil (peek ptr)) >>
-                    loop (ptr `plusPtr` 1)
-#endif
-        loop start
-      where
-#if MIN_VERSION_bytestring(0,10,6)
-        evil = Unsafe.accursedUnutterablePerformIO
-#else
-        evil = Unsafe.inlinePerformIO
-#endif
-        {-# INLINE evil #-}
-    ofoldr1Ex = S.foldr1
-
-    ofoldl1Ex' = S.foldl1'
-
-    headEx = S.head
-
-    lastEx = S.last
-
-    unsafeHead = SU.unsafeHead
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE omapWithKeyM_ #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-    {-# INLINE unsafeHead #-}
-    {-# INLINE oelem #-}
-    {-# INLINE onotElem #-}
-{-# RULES "strict ByteString: ofoldMap = concatMap" ofoldMap = S.concatMap #-}
 
 instance MonoFoldableWithKey BSL.ByteString where
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldMap f = ofoldr (mappend . f) mempty
+    ofoldlWithKey  = monoFoldableWithIntegralKey
 
-    ofoldr = L.foldr
-
-    ofoldl' = L.foldl'
-
-    otoList = L.unpack
-
-    oall = L.all
-
-    oany = L.any
-
-    onull = L.null
-
-    olength64 = L.length
-
-    omapWithKeyM_ f = omapWithKeyM_ (omapWithKeyM_ f) . L.toChunks
-
-    ofoldr1Ex = L.foldr1
-
-    ofoldl1Ex' = L.foldl1'
-
-    headEx = L.head
-
-    lastEx = L.last
-
-    oelem = L.elem
-
-    onotElem = L.notElem
-
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength64 #-}
-    {-# INLINE omapWithKeyM_ #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-    {-# INLINE oelem #-}
-    {-# INLINE onotElem #-}
-{-# RULES "lazy ByteString: ofoldMap = concatMap" ofoldMap = L.concatMap #-}
 
 instance MonoFoldableWithKey T.Text where
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldMap f = ofoldr (mappend . f) mempty
+    ofoldlWithKey   = monoFoldableWithIntegralKey
 
-    ofoldr = T.foldr
-
-    ofoldl' = T.foldl'
-
-    otoList = T.unpack
-
-    oall = T.all
-
-    oany = T.any
-
-    onull = T.null
-
-    olength = T.length
-
-    ofoldr1Ex = T.foldr1
-
-    ofoldl1Ex' = T.foldl1'
-
-    headEx = T.head
-
-    lastEx = T.last
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-{-# RULES "strict Text: ofoldMap = concatMap" ofoldMap = T.concatMap #-}
 
 instance MonoFoldableWithKey TL.Text where
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldMap f = ofoldr (mappend . f) mempty
+    ofoldlWithKey   = monoFoldableWithIntegralKey
 
-    ofoldr = TL.foldr
 
-    ofoldl' = TL.foldl'
-
-    otoList = TL.unpack
-
-    oall = TL.all
-
-    oany = TL.any
-
-    onull = TL.null
-
-    olength64 = TL.length
-
-    ofoldr1Ex = TL.foldr1
-
-    ofoldl1Ex' = TL.foldl1'
-
-    headEx = TL.head
-
-    lastEx = TL.last
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-{-# RULES "lazy Text: ofoldMap = concatMap" ofoldMap = TL.concatMap #-}
-
-instance MonoFoldableWithKey IntSet where
-
-    ofoldMap f = ofoldr (mappend . f) mempty
-
-    ofoldr = IntSet.foldr
-
-    ofoldl' = IntSet.foldl'
-
-    otoList = IntSet.toList
-
-    onull = IntSet.null
-
-    olength = IntSet.size
-
-    ofoldr1Ex f = ofoldr1Ex f . IntSet.toList
-
-    ofoldl1Ex' f = ofoldl1Ex' f . IntSet.toList
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    
-    
 instance MonoFoldableWithKey [a] where
+    {-# INLINE ofoldlWithKey #-}
 
-    otoList = id
-    {-# INLINE otoList #-}
-
-    ocompareLength [] i = 0 `compare` i
-    ocompareLength (_:xs) i
-        | i Prelude.<= 0 = GT
-        | otherwise = ocompareLength xs (i - 1)
+    ofoldlWithKey   = monoFoldableWithIntegralKey
         
         
 instance MonoFoldableWithKey (Maybe a) where
+    {-# INLINE ofoldMapWithKey #-}
 
-#if MIN_VERSION_base(4,8,0)
-    omapWithKeyM_ _ Nothing = pure ()
-#else
-    omapWithKeyM_ _ Nothing = return ()
-#endif
-    omapWithKeyM_ f (Just x) = f x
-    {-# INLINE omapWithKeyM_ #-}
+    ofoldMapWithKey = monoFoldableWithUnitKey
     
-    
+
 instance MonoFoldableWithKey (Tree a)
 
 
 instance MonoFoldableWithKey (Seq a) where
+    {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
 
-    headEx = flip Seq.index 0
+    ofoldMapWithKey = Seq.foldMapWithIndex
 
-    lastEx xs = Seq.index xs (Seq.length xs - 1)
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
+    ofoldrWithKey   = Seq.foldrWithIndex
 
-
-instance MonoFoldableWithKey (ViewL a)
-
-
-instance MonoFoldableWithKey (ViewR a)
+    ofoldlWithKey   = Seq.foldlWithIndex
 
 
-instance MonoFoldableWithKey (IntMap a)
+instance MonoFoldableWithKey (ViewL a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldableWithKey (Option a)
+instance MonoFoldableWithKey (ViewR a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldableWithKey (NonEmpty a)
+instance MonoFoldableWithKey (IntMap a) where
+    {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldMapWithKey = IM.foldMapWithKey
+
+    ofoldrWithKey   = IM.foldrWithKey
+
+    ofoldlWithKey   = IM.foldlWithKey'
 
 
-instance MonoFoldableWithKey (Identity a)
+instance MonoFoldableWithKey IntSet where
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldlWithKey   = monoFoldableWithIntegralKey
+
+
+instance MonoFoldableWithKey (Option a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
+
+
+instance MonoFoldableWithKey (NonEmpty a) where
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldlWithKey   = monoFoldableWithIntegralKey
+
+
+instance MonoFoldableWithKey (Identity a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
 instance MonoFoldableWithKey (Map k v) where
+    {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
 
-    olength = Map.size
-    {-# INLINE olength #-}
+    ofoldMapWithKey = Map.foldMapWithKey
+
+    ofoldrWithKey   = Map.foldrWithKey
+
+    ofoldlWithKey   = Map.foldlWithKey'
 
 
-instance MonoFoldableWithKey (HashMap k v)
+instance MonoFoldableWithKey (HashMap k v) where
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldrWithKey   = HM.foldrWithKey
+
+    ofoldlWithKey   = HM.foldlWithKey'
+
+
+instance MonoFoldableWithKey (HashSet v) where
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldlWithKey   = monoFoldableWithIntegralKey
 
 
 instance MonoFoldableWithKey (Vector a) where
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldr = V.foldr
+    ofoldrWithKey   = V.ifoldr
 
-    ofoldl' = V.foldl'
-
-    otoList = V.toList
-
-    oall = V.all
-
-    oany = V.any
-
-    onull = V.null
-
-    olength = V.length
-
-    ofoldr1Ex = V.foldr1
-
-    ofoldl1Ex' = V.foldl1'
-
-    headEx = V.head
-
-    lastEx = V.last
-
-    unsafeHead = V.unsafeHead
-
-    unsafeLast = V.unsafeLast
-
-    maximumByEx = V.maximumBy
-
-    minimumByEx = V.minimumBy
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-    {-# INLINE unsafeHead #-}
-    {-# INLINE maximumByEx #-}
-    {-# INLINE minimumByEx #-}
+    ofoldlWithKey   = V.ifoldl'
 
 
 instance Ord e => MonoFoldableWithKey (Set e) where
+    {-# INLINE ofoldlWithKey #-}
 
-    olength = Set.size
-
-    oelem = Set.member
-
-    onotElem = Set.notMember
-    {-# INLINE olength #-}
-    {-# INLINE oelem #-}
-    {-# INLINE onotElem #-}
-
-
-instance MonoFoldableWithKey (HashSet e)
+    ofoldlWithKey   = monoFoldableWithIntegralKey
 
 
 instance U.Unbox a => MonoFoldableWithKey (U.Vector a) where
-    ofoldMap f = ofoldr (mappend . f) mempty
-    ofoldr = U.foldr
-    ofoldl' = U.foldl'
-    otoList = U.toList
-    oall = U.all
-    oany = U.any
-    onull = U.null
-    olength = U.length
-    ofoldr1Ex = U.foldr1
-    ofoldl1Ex' = U.foldl1'
-    headEx = U.head
-    lastEx = U.last
-    unsafeHead = U.unsafeHead
-    unsafeLast = U.unsafeLast
-    maximumByEx = U.maximumBy
-    minimumByEx = U.minimumBy
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-    {-# INLINE unsafeHead #-}
-    {-# INLINE maximumByEx #-}
-    {-# INLINE minimumByEx #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldrWithKey   = U.ifoldr
+
+    ofoldlWithKey   = U.ifoldl'
 
 
 instance VS.Storable a => MonoFoldableWithKey (VS.Vector a) where
-    ofoldMap f = ofoldr (mappend . f) mempty
-    ofoldr = VS.foldr
-    ofoldl' = VS.foldl'
-    otoList = VS.toList
-    oall = VS.all
-    oany = VS.any
-    onull = VS.null
-    olength = VS.length
-    ofoldr1Ex = VS.foldr1
-    ofoldl1Ex' = VS.foldl1'
-    headEx = VS.head
-    lastEx = VS.last
-    unsafeHead = VS.unsafeHead
-    unsafeLast = VS.unsafeLast
-    maximumByEx = VS.maximumBy
-    minimumByEx = VS.minimumBy
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
-    {-# INLINE headEx #-}
-    {-# INLINE lastEx #-}
-    {-# INLINE unsafeHead #-}
-    {-# INLINE maximumByEx #-}
-    {-# INLINE minimumByEx #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldrWithKey   = VS.ifoldr
+
+    ofoldlWithKey   = VS.ifoldl'
 
 
 instance MonoFoldableWithKey (Either a b) where
-    ofoldMap f = ofoldr (mappend . f) mempty
-    ofoldr f b (Right a) = f a b
-    ofoldr _ b (Left _) = b
-    ofoldl' f a (Right b) = f a b
-    ofoldl' _ a (Left _) = a
-    otoList (Left _) = []
-    otoList (Right b) = [b]
-    oall _ (Left _) = True
-    oall f (Right b) = f b
-    oany _ (Left _) = False
-    oany f (Right b) = f b
-    onull (Left _) = True
-    onull (Right _) = False
-    olength (Left _) = 0
-    olength (Right _) = 1
-    ofoldr1Ex _ (Left _) = Prelude.error "ofoldr1Ex on Either"
-    ofoldr1Ex _ (Right x) = x
-    ofoldl1Ex' _ (Left _) = Prelude.error "ofoldl1Ex' on Either"
-    ofoldl1Ex' _ (Right x) = x
-#if MIN_VERSION_base(4,8,0)
-    omapWithKeyM_ _ (Left _) = pure ()
-#else
-    omapWithKeyM_ _ (Left _) = return ()
-#endif
-    omapWithKeyM_ f (Right x) = f x
-    {-# INLINE ofoldMap #-}
-    {-# INLINE ofoldr #-}
-    {-# INLINE ofoldl' #-}
-    {-# INLINE otoList #-}
-    {-# INLINE oall #-}
-    {-# INLINE oany #-}
-    {-# INLINE onull #-}
-    {-# INLINE olength #-}
-    {-# INLINE omapWithKeyM_ #-}
-    {-# INLINE ofoldr1Ex #-}
-    {-# INLINE ofoldl1Ex' #-}
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldableWithKey (a, b)
+instance MonoFoldableWithKey (a, b) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldableWithKey (Const m a)
+instance MonoFoldableWithKey (Const m a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldable f => MonoFoldableWithKey (MaybeT f a)
+instance Foldable f => MonoFoldableWithKey (MaybeT f a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldable f => MonoFoldableWithKey (ListT f a)
+instance Foldable f => MonoFoldableWithKey (ListT f a) where
+    {-# INLINE ofoldlWithKey #-}
+
+    ofoldlWithKey   = monoFoldableWithIntegralKey
 
 
-instance MonoFoldable f => MonoFoldableWithKey (IdentityT f a)
+instance Foldable f => MonoFoldableWithKey (IdentityT f a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldable f => MonoFoldableWithKey (WriterT w f a)
+instance Foldable f => MonoFoldableWithKey (WriterT w f a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance MonoFoldable f => MonoFoldableWithKey (S.WriterT w f a)
+instance Foldable f => MonoFoldableWithKey (S.WriterT w f a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance (MonoFoldable f, MonoFoldable g) => MonoFoldableWithKey (Compose f g a)
+instance (Foldable f, Foldable g) => MonoFoldableWithKey (Compose f g a) where
+    {-# INLINE ofoldMapWithKey #-}
+
+    ofoldMapWithKey = monoFoldableWithUnitKey
 
 
-instance (MonoFoldable f, MonoFoldable g) => MonoFoldableWithKey (Product f g a)
+instance (Foldable f, Foldable g) => MonoFoldableWithKey (Product f g a) where
+    {-# INLINE ofoldMapWithKey #-}
 
-
--- | Safe version of 'headEx'.
---
--- Returns 'Nothing' instead of throwing an exception when encountering
--- an empty monomorphic container.
-headMay :: MonoFoldable mono => mono -> Maybe (Element mono)
-headMay mono
-    | onull mono = Nothing
-    | otherwise = Just (headEx mono)
-{-# INLINE headMay #-}
-
--- | Safe version of 'lastEx'.
---
--- Returns 'Nothing' instead of throwing an exception when encountering
--- an empty monomorphic container.
-lastMay :: MonoFoldable mono => mono -> Maybe (Element mono)
-lastMay mono
-    | onull mono = Nothing
-    | otherwise = Just (lastEx mono)
-{-# INLINE lastMay #-}
-
--- | 'osum' computes the sum of the numbers of a monomorphic container.
-osum :: (MonoFoldable mono, Num (Element mono)) => mono -> Element mono
-osum = ofoldl' (+) 0
-{-# INLINE osum #-}
-
--- | 'oproduct' computes the product of the numbers of a monomorphic container.
-oproduct :: (MonoFoldable mono, Num (Element mono)) => mono -> Element mono
-oproduct = ofoldl' (*) 1
-{-# INLINE oproduct #-}
-
--- | Are __all__ of the elements 'True'?
---
--- Since 0.6.0
-oand :: (Element mono ~ Bool, MonoFoldable mono) => mono -> Bool
-oand = oall id
-{-# INLINE oand #-}
-
--- | Are __any__ of the elements 'True'?
---
--- Since 0.6.0
-oor :: (Element mono ~ Bool, MonoFoldable mono) => mono -> Bool
-oor = oany id
-{-# INLINE oor #-}
-
--- | Synonym for 'ofoldMap'
---
--- @since 1.0.0
-oconcatMap :: (MonoFoldable mono, Monoid m) => (Element mono -> m) -> mono -> m
-oconcatMap = ofoldMap
-
--- | Monoidally combine all values in the container
---
--- @since 1.0.0
-ofold :: (MonoFoldable mono, Monoid (Element mono)) => mono -> Element mono
-ofold = ofoldMap id
-{-# INLINE ofold #-}
-
--- | Synonym for 'ofold'
---
--- @since 1.0.0
-oconcat :: (MonoFoldable mono, Monoid (Element mono)) => mono -> Element mono
-oconcat = ofold
-{-# INLINE oconcat #-}
-
--- | Synonym for 'ofoldlM'
---
--- @since 1.0.0
-ofoldM :: (MonoFoldable mono, Monad m) => (a -> Element mono -> m a) -> a -> mono -> m a
-ofoldM = ofoldlM
-{-# INLINE ofoldM #-}
-
--- | Perform all actions in the given container
---
--- @since 1.0.0
-#if MIN_VERSION_base(4,8,0)
-osequence_ :: (Applicative m, MonoFoldable mono, Element mono ~ (m ())) => mono -> m ()
-#else
-osequence_ :: (Monad m, MonoFoldable mono, Element mono ~ (m ())) => mono -> m ()
-#endif
-osequence_ = omapWithKeyM_ id
-{-# INLINE osequence_ #-}
-
--- | Get the minimum element of a monomorphic container.
---
--- Note: this is a partial function. On an empty 'MonoFoldable', it will
--- throw an exception.
---
--- /See 'Data.NonNull.maximum' from "Data.NonNull" for a total version of this function./
-maximumEx :: (MonoFoldable mono, Ord (Element mono)) => mono -> Element mono
-maximumEx = maximumByEx compare
-{-# INLINE [0] maximumEx #-}
-
--- | Get the maximum element of a monomorphic container.
---
--- Note: this is a partial function. On an empty 'MonoFoldable', it will
--- throw an exception.
---
--- /See 'Data.NonNull.minimum' from "Data.NonNull" for a total version of this function./
-minimumEx :: (MonoFoldable mono, Ord (Element mono)) => mono -> Element mono
-minimumEx = minimumByEx compare
-{-# INLINE [0] minimumEx #-}
-
-{-# RULES "strict ByteString maximumEx" maximumEx = S.maximum #-}
-{-# RULES "strict ByteString minimumEx" minimumEx = S.minimum #-}
-
-{-# RULES "lazy ByteString maximumEx" maximumEx = L.maximum #-}
-{-# RULES "lazy ByteString minimumEx" minimumEx = L.minimum #-}
-
-{-# RULES "strict Text maximumEx" maximumEx = T.maximum #-}
-{-# RULES "strict Text minimumEx" minimumEx = T.minimum #-}
-
-{-# RULES "lazy Text maximumEx" maximumEx = TL.maximum #-}
-{-# RULES "lazy Text minimumEx" minimumEx = TL.minimum #-}
-
-{-# RULES "boxed Vector maximumEx" maximumEx = V.maximum #-}
-{-# RULES "boxed Vector minimumEx" minimumEx = V.minimum #-}
-
-{-# RULES "unboxed Vector maximumEx" forall (u :: U.Unbox a => U.Vector a). maximumEx u = U.maximum u #-}
-{-# RULES "unboxed Vector minimumEx" forall (u :: U.Unbox a => U.Vector a). minimumEx u = U.minimum u #-}
-
-{-# RULES "storable Vector maximumEx" forall (v :: VS.Storable a => VS.Vector a). maximumEx v = VS.maximum v #-}
-{-# RULES "storable Vector minimumEx" forall (v :: VS.Storable a => VS.Vector a). minimumEx v = VS.minimum v #-}
-
--- | Safe version of 'maximumEx'.
---
--- Returns 'Nothing' instead of throwing an exception when
--- encountering an empty monomorphic container.
-maximumMay :: (MonoFoldable mono, Ord (Element mono)) => mono -> Maybe (Element mono)
-maximumMay mono
-    | onull mono = Nothing
-    | otherwise = Just (maximumEx mono)
-{-# INLINE maximumMay #-}
-
--- | Safe version of 'maximumByEx'.
---
--- Returns 'Nothing' instead of throwing an exception when
--- encountering an empty monomorphic container.
-maximumByMay :: MonoFoldable mono
-             => (Element mono -> Element mono -> Ordering)
-             -> mono
-             -> Maybe (Element mono)
-maximumByMay f mono
-    | onull mono = Nothing
-    | otherwise = Just (maximumByEx f mono)
-{-# INLINE maximumByMay #-}
-
-
--- | Safe version of 'minimumEx'.
---
--- Returns 'Nothing' instead of throwing an exception when
--- encountering an empty monomorphic container.
-minimumMay :: (MonoFoldable mono, Ord (Element mono)) => mono -> Maybe (Element mono)
-minimumMay mono
-    | onull mono = Nothing
-    | otherwise = Just (minimumEx mono)
-{-# INLINE minimumMay #-}
-
-
--- | Safe version of 'minimumByEx'.
---
--- Returns 'Nothing' instead of throwing an exception when
--- encountering an empty monomorphic container.
-minimumByMay :: MonoFoldable mono
-             => (Element mono -> Element mono -> Ordering)
-             -> mono
-             -> Maybe (Element mono)
-minimumByMay f mono
-    | onull mono = Nothing
-    | otherwise = Just (minimumByEx f mono)
-{-# INLINE minimumByMay #-}
-
+    ofoldMapWithKey = monoFoldableWithUnitKey
