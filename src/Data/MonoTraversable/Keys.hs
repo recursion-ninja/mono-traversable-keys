@@ -98,7 +98,7 @@ import           GHC.Generics
 -- Type family for getting the type of the key of a monomorphic container.
 type family MonoKey key
 
---type instance MonoKey (r -> a)             = ()
+type instance MonoKey (r -> a)             = ()
 type instance MonoKey [a]                  = Int
 type instance MonoKey (a, b)               = ()
 --type instance MonoKey ((g :.: f) a)        = Key (f :.: g)
