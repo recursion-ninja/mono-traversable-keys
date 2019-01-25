@@ -94,7 +94,9 @@ import           Data.Vector                              (Vector)
 import qualified Data.Vector                       as V
 import           Data.Vector.Instances                    ()
 import qualified Data.Vector.Storable              as VS
+import qualified Data.Vector.Storable.Mutable      as VSM
 import qualified Data.Vector.Unboxed               as VU
+import qualified Data.Vector.Unboxed.Mutable       as VUM
 import           Data.Void
 import           GHC.Generics
 import           Prelude                           hiding (lookup)
@@ -258,6 +260,9 @@ class MonoFunctor mono => MonoAdjustable mono where
     {-# MINIMAL oadjust #-}
 
     oadjust :: (Element mono -> Element mono) -> MonoKey mono -> mono -> mono
+    default oadjust :: (Adjustable f, Element (f a) ~ a, MonoKey (f a) ~ Key f, f a ~ mono)
+                    => (Element mono -> Element mono) -> MonoKey mono -> mono -> mono
+    oadjust = adjust
 
     oreplace :: MonoKey mono -> Element mono -> mono -> mono
     oreplace k v = oadjust (const v) k
@@ -1735,6 +1740,347 @@ instance MonoIndexable (ZipList a) where
     {-# INLINE oindex #-}
 
     oindex = index
+
+
+-- * MonoAdjustable Instances
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (r -> a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f _ g = f . g 
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable [a]
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (a, b) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Arg a b) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable BS.ByteString where
+    {-# INLINE oadjust #-}
+
+    oadjust f i bs
+      |  i < 0
+      || i >= BS.length bs = bs
+      |  otherwise         = snd $ BS.mapAccumL g 0 bs
+      where
+        g k v = (succ k, if k == i then f v else v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable BSL.ByteString where
+    {-# INLINE oadjust #-}
+
+    oadjust f i bs
+      |  i < 0
+      || i >= fromEnum (BSL.length bs) = bs
+      |  otherwise                     = snd $ BSL.mapAccumL g 0 bs
+      where
+        g k v = (succ k, if k == i then f v else v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Const m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = const $ const id
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (ContT r m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Either a b) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Eq k, Hashable k) => MonoAdjustable (HashMap k v) where
+    {-# INLINE oadjust #-}
+
+    oadjust = HM.adjust
+
+
+-- Cannot instantiate because the adjust might violate the internal structure
+-- instance MonoAdjustable (HashSet v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Identity a)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (IdentityT m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (IntMap a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = IM.adjust
+
+
+-- Cannot instantiate because the adjust might violate the internal structure
+-- instance MonoAdjustable IntSet
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (IO a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (ListT m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f i = ListT . fmap (adjust f i) . runListT
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord k => MonoAdjustable (Map k v) where
+    {-# INLINE oadjust #-}
+  
+    oadjust = Map.adjust
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Maybe a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (MaybeT m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (NonEmpty a) {-where
+
+    oadjust = adjust
+-}
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Option a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Adjustable f
+         , Adjustable g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoAdjustable (Product f g a)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (ReaderT r m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (RWST r w s m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (S.RWST r w s m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Seq a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = Seq.adjust'
+
+
+-- Cannot instantiate because the adjust might violate the internal structure
+-- instance MonoAdjustable Set
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (StateT s m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (S.StateT s m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable T.Text where
+    {-# INLINE oadjust #-}
+
+    oadjust f i ts
+      |  i < 0
+      || i >= T.length ts = ts
+      |  otherwise        = snd $ T.mapAccumL g 0 ts
+      where
+        g k v = (succ k, if k == i then f v else v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable TL.Text where
+    {-# INLINE oadjust #-}
+
+    oadjust f i ts
+      |  i < 0
+      || i >= fromEnum (TL.length ts) = ts
+      |  otherwise                    = snd $ TL.mapAccumL g 0 ts
+      where
+        g k v = (succ k, if k == i then f v else v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Tree a)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (Vector a)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VU.Unbox a => MonoAdjustable (VU.Vector a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f i = VU.modify $ \v -> VUM.modify v f i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VS.Storable a => MonoAdjustable (VS.Vector a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f i = VS.modify $ \v -> VSM.modify v f i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (ViewL a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (ViewR a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Arrow a => MonoAdjustable (WrappedArrow a b c) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Monad m => MonoAdjustable (WrappedMonad m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (WriterT w m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoAdjustable (S.WriterT w m a) where
+    {-# INLINE oadjust #-}
+
+    oadjust f = const $ fmap f
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoAdjustable (ZipList a)
 
 
 -- * Unwraping functions
