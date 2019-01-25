@@ -46,7 +46,7 @@ import           Control.Applicative
 import           Control.Arrow                            (Arrow)
 --import           Control.Comonad.Cofree                   (Cofree(..))
 import           Control.Monad                            (Monad (..))
-import           Control.Monad.Free
+--import           Control.Monad.Free
 import           Control.Monad.Trans.Cont                 (ContT)
 import           Control.Monad.Trans.Identity             (IdentityT)
 import           Control.Monad.Trans.List                 (ListT(..))
@@ -75,18 +75,19 @@ import qualified Data.IntMap                       as IM
 import           Data.IntSet                              (IntSet)
 import qualified Data.IntSet                       as IS
 import           Data.Key
-import           Data.List.NonEmpty                       (NonEmpty)
+import           Data.List.NonEmpty                       (NonEmpty(..))
 import           Data.Map                                 (Map)
 import qualified Data.Map.Strict                   as Map
+import           Data.Maybe
 import           Data.Monoid                              (Monoid(..))
 import           Data.MonoTraversable                     (Element, MonoFoldable(..), MonoFunctor(..), MonoTraversable(..))
-import           Data.Proxy
-import           Data.Semigroup                           (Arg(..), Dual(..), Endo(..), Option(..))
+--import           Data.Proxy
+import           Data.Semigroup                           (Semigroup(..), Arg(..), Dual(..), Endo(..), Option(..))
 import           Data.Sequence                            (Seq, ViewL(..), ViewR(..))
 import qualified Data.Sequence                     as Seq
 import           Data.Set                                 (Set)
 import qualified Data.Set                          as Set
-import           Data.Tagged
+--import           Data.Tagged
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as TL
 import           Data.Tree                                (Tree(..))
@@ -97,9 +98,10 @@ import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Storable.Mutable      as VSM
 import qualified Data.Vector.Unboxed               as VU
 import qualified Data.Vector.Unboxed.Mutable       as VUM
-import           Data.Void
-import           GHC.Generics
-import           Prelude                           hiding (lookup)
+--import           Data.Void
+--import           GHC.Generics
+import           Prelude                           hiding (lookup, zipWith)
+
 
 -- |
 -- Type family for getting the type of the key of a monomorphic container.
@@ -547,16 +549,16 @@ instance MonoKeyed (Vector a)
 -- |
 -- /Since @v0.1.0@/ 
 instance VU.Unbox a => MonoKeyed (VU.Vector a) where
-
     {-# INLINE omapWithKey #-}
+
     omapWithKey = VU.imap
 
 
 -- |
 -- /Since @v0.1.0@/ 
 instance VS.Storable a => MonoKeyed (VS.Vector a) where
-
     {-# INLINE omapWithKey #-}
+
     omapWithKey = VS.imap
 
 
@@ -1411,16 +1413,16 @@ instance MonoLookup (Vector a) where
 -- |
 -- /Since @v0.1.0@/ 
 instance VU.Unbox a => MonoLookup (VU.Vector a) where
-
     {-# INLINE olookup #-}
+
     olookup = flip (VU.!?)
 
 
 -- |
 -- /Since @v0.1.0@/ 
 instance VS.Storable a => MonoLookup (VS.Vector a) where
-
     {-# INLINE olookup #-}
+
     olookup = flip (VS.!?)
 
 
@@ -1516,7 +1518,7 @@ instance ( Indexable f
 instance MonoIndexable (Either a b) where
     {-# INLINE oindex #-}
 
-    oindex (Right v) = const $ v
+    oindex (Right v) = const v
     oindex (Left  _) = error
         "oindex on Either is Left, cannot retreive a value. Consider using olookup instead."
 
@@ -1534,16 +1536,15 @@ instance (Eq k, Hashable k) => MonoIndexable (HashMap k v) where
 instance MonoIndexable (HashSet v) where
     {-# INLINE oindex #-}
 
-    oindex hs i =
-      case olookup i hs of
-        Just v  -> v
-        Nothing -> error $ mconcat
-          [ "oindex on Set at point "
-          , show i
-          , " is outside the range: [0, "
-          , show (HS.size hs - 1)
-          , "]."
-          ]
+    oindex hs i = fromMaybe errorMessage $ olookup i hs
+      where
+        errorMessage = error $ mconcat
+            [ "oindex on HashSet at point "
+            , show i
+            , " is outside the range: [0, "
+            , show (HS.size hs - 1)
+            , "]."
+            ]
 
 
 -- |
@@ -1567,16 +1568,15 @@ instance MonoIndexable (IntMap a) where
 instance MonoIndexable IntSet where
     {-# INLINE oindex #-}
 
-    oindex is i =
-      case olookup i is of
-        Just v  -> v
-        Nothing -> error $ mconcat
-          [ "oindex on IntSet at point "
-          , show i
-          , " is outside the range: [0, "
-          , show (IS.size is - 1)
-          , "]."
-          ]
+    oindex is i = fromMaybe errorMessage $ olookup i is
+      where
+        errorMessage = error $ mconcat
+            [ "oindex on IntSet at point "
+            , show i
+            , " is outside the range: [0, "
+            , show (IS.size is - 1)
+            , "]."
+            ]
 
 
 -- |
@@ -1608,10 +1608,9 @@ instance MonoIndexable (NonEmpty a) where
 instance MonoIndexable (Option a) where
     {-# INLINE oindex #-}
 
-    oindex o _ =
-      case getOption o of
-        Just v  -> v
-        Nothing -> error 
+    oindex = flip . const $ fromMaybe errorMessage . getOption
+      where
+        errorMessage = error 
             "oindex on empty Option, cannot retreive a value. Consider using olookup instead."
 
 
@@ -1648,16 +1647,15 @@ instance MonoIndexable (Seq a) where
 instance Ord a => MonoIndexable (Set a) where
     {-# INLINE oindex #-}
 
-    oindex s i =
-      case olookup i s of
-        Just v  -> v
-        Nothing -> error $ mconcat
-          [ "oindex on Set at point "
-          , show i
-          , " is outside the range: [0, "
-          , show (Set.size s - 1)
-          , "]."
-          ]
+    oindex s i = fromMaybe errorMessage $ olookup i s
+      where
+        errorMessage = error $ mconcat
+            [ "oindex on Set at point "
+            , show i
+            , " is outside the range: [0, "
+            , show (Set.size s - 1)
+            , "]."
+            ]
 
 
 -- |
@@ -1701,16 +1699,16 @@ instance MonoIndexable (Vector a) where
 -- |
 -- /Since @v0.1.0@/ 
 instance VU.Unbox a => MonoIndexable (VU.Vector a) where
-
     {-# INLINE oindex #-}
+
     oindex = (VU.!)
 
 
 -- |
 -- /Since @v0.1.0@/ 
 instance VS.Storable a => MonoIndexable (VS.Vector a) where
-
     {-# INLINE oindex #-}
+
     oindex = (VS.!)
 
 
@@ -1755,7 +1753,10 @@ instance MonoAdjustable (r -> a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable [a]
+instance MonoAdjustable [a] where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
 
 
 -- |
@@ -1838,7 +1839,10 @@ instance (Eq k, Hashable k) => MonoAdjustable (HashMap k v) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable (Identity a)
+instance MonoAdjustable (Identity a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
 
 
 -- |
@@ -1903,10 +1907,10 @@ instance Functor m => MonoAdjustable (MaybeT m a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable (NonEmpty a) {-where
+instance MonoAdjustable (NonEmpty a) where
+    {-# INLINE oadjust #-}
 
     oadjust = adjust
--}
 
 
 -- |
@@ -1923,7 +1927,10 @@ instance ( Adjustable f
          , Adjustable g
          , MonoKey (f a) ~ Key f
          , MonoKey (g a) ~ Key g
-         ) => MonoAdjustable (Product f g a)
+         ) => MonoAdjustable (Product f g a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
 
 
 -- |
@@ -2006,12 +2013,18 @@ instance MonoAdjustable TL.Text where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable (Tree a)
+instance MonoAdjustable (Tree a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
 
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable (Vector a)
+instance MonoAdjustable (Vector a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
 
 
 -- |
@@ -2080,7 +2093,373 @@ instance Functor m => MonoAdjustable (S.WriterT w m a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance MonoAdjustable (ZipList a)
+instance MonoAdjustable (ZipList a) where
+    {-# INLINE oadjust #-}
+
+    oadjust = adjust
+
+
+-- * MonoZip Instances
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (r -> a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip [a] where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (a, b) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (_, b1) (a, b2) = (a, f b1 b2)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Arg a b) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (Arg _ b1) (Arg a b2) = Arg a $ f b1 b2
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip BS.ByteString where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f bs = BS.pack . BS.zipWith f bs
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip BSL.ByteString where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f bs = BSL.pack . BSL.zipWith f bs
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Zip f
+         , Zip g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoZip (Compose f g a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Const m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = const $ const id
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoZip (ContT r m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Either a b) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Eq k, Hashable k) => MonoZip (HashMap k v) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = HM.intersectionWith f x y <> HM.difference x y <> HM.difference y x
+
+
+-- Cannot instantiate because the zip might violate the internal structure
+-- instance MonoZip IntSet
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Identity a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (IdentityT m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (IntMap a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = IM.intersectionWith f x y <> IM.difference x y <> IM.difference y x
+
+
+-- Cannot instantiate because the zip might violate the internal structure
+-- instance MonoZip IntSet
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (IO a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y 
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (ListT m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = ListT $ zipWith f <$> runListT x <*> runListT y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord k => MonoZip (Map k v) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = Map.intersectionWith f x y <> Map.difference x y <> Map.difference y x
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Maybe a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (MaybeT m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = MaybeT $ liftA2 f <$> runMaybeT x <*> runMaybeT y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (NonEmpty a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (x:|xs) (y :|ys) = f x y :| zipWith f xs ys
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Option a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Zip f
+         , Zip g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoZip (Product f g a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (ReaderT r m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Semigroup w) => MonoZip (RWST r w s m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (RWST x) (RWST y) = RWST $ \r s ->
+        let g (a1, _, w1) (a2, _, w2) = (f a1 a2, s, w1 <> w2)
+        in  g <$> x r s <*> y r s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Semigroup w) => MonoZip (S.RWST r w s m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (S.RWST x) (S.RWST y) = S.RWST $ \r s ->
+        let g (a1, _, w1) (a2, _, w2) = (f a1 a2, s, w1 <> w2)
+        in  g <$> x r s <*> y r s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Seq a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- Cannot instantiate because the zip might violate the internal structure
+-- instance MonoZip Set
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (StateT s m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (StateT x) (StateT y) = StateT $ \ s ->
+        let g (a1, _) (a2, _) = (f a1 a2, s)
+        in  g <$> x s <*> y s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZip (S.StateT s m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f (S.StateT x) (S.StateT y) = S.StateT $ \ s ->
+        let g (a1, _) (a2, _) = (f a1 a2, s)
+        in  g <$> x s <*> y s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip T.Text where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = T.zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip TL.Text where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = TL.zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Tree a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (Vector a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VU.Unbox a => MonoZip (VU.Vector a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = VU.zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VS.Storable a => MonoZip (VS.Vector a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = VS.zipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (ViewL a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith _ EmptyL _ = EmptyL
+    ozipWith _ _ EmptyL = EmptyL
+    ozipWith f (x:<xs) (y:<ys) = f x y :< Seq.zipWith f xs ys
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (ViewR a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith _ EmptyR _ = EmptyR
+    ozipWith _ _ EmptyR = EmptyR
+    ozipWith f (xs:>x) (ys:>y) = Seq.zipWith f xs ys :> f x y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Arrow a => MonoZip (WrappedArrow a b c) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Monad m => MonoZip (WrappedMonad m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Monoid w) => MonoZip (WriterT w m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Monoid w) => MonoZip (S.WriterT w m a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith f x y = f <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZip (ZipList a) where
+    {-# INLINE ozipWith #-}
+
+    ozipWith = zipWith
 
 
 -- * Unwraping functions
@@ -2163,5 +2542,5 @@ monoLookupFoldable i t
       | otherwise = go i $ otoList t
       where
         go  _    []  = Nothing
-        go  0 (x:[]) = Just x
+        go  0   [x]  = Just x
         go !n (_:xs) = go (n-1) xs
