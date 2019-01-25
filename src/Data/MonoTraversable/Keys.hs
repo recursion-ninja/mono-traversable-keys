@@ -14,6 +14,7 @@
 -- Note that all type-classes have been prefixed with @Mono@, and functions have
 -- been prefixed with @o@. The mnemonic is inherited from 'Data.MonoTraversable'.
 
+{-# LANGUAGE BangPatterns            #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE DefaultSignatures       #-}
 {-# LANGUAGE FlexibleContexts        #-}
@@ -43,7 +44,7 @@ module Data.MonoTraversable.Keys
 
 import           Control.Applicative
 import           Control.Arrow                            (Arrow)
-import           Control.Comonad.Cofree                   (Cofree(..))
+--import           Control.Comonad.Cofree                   (Cofree(..))
 import           Control.Monad                            (Monad (..))
 import           Control.Monad.Free
 import           Control.Monad.Trans.Cont                 (ContT)
@@ -60,16 +61,19 @@ import qualified Control.Monad.Trans.Writer.Strict as S   (WriterT)
 import qualified Data.ByteString                   as BS
 import qualified Data.ByteString.Lazy              as BSL
 import           Data.Foldable                            (Foldable)
-import           Data.Functor.Compose                     (Compose)
+import           Data.Functor.Compose                     (Compose(..))
 import           Data.Functor.Identity                    (Identity)
-import           Data.Functor.Product                     (Product)
+import           Data.Functor.Product                     (Product(..))
+import           Data.Hashable
 import           Data.HashMap.Strict                      (HashMap)
 import qualified Data.HashMap.Strict               as HM
 import           Data.HashSet                             (HashSet)
+import           Data.HashSet                      as HS
 import           Data.Int                                 (Int)
 import           Data.IntMap                              (IntMap)
 import qualified Data.IntMap                       as IM
 import           Data.IntSet                              (IntSet)
+import qualified Data.IntSet                       as IS
 import           Data.Key
 import           Data.List.NonEmpty                       (NonEmpty)
 import           Data.Map                                 (Map)
@@ -77,10 +81,11 @@ import qualified Data.Map.Strict                   as Map
 import           Data.Monoid                              (Monoid(..))
 import           Data.MonoTraversable                     (Element, MonoFoldable(..), MonoFunctor(..), MonoTraversable(..))
 import           Data.Proxy
-import           Data.Semigroup                           (Arg, Dual(..), Endo(..), Option(..))
+import           Data.Semigroup                           (Arg(..), Dual(..), Endo(..), Option(..))
 import           Data.Sequence                            (Seq, ViewL(..), ViewR(..))
 import qualified Data.Sequence                     as Seq
 import           Data.Set                                 (Set)
+import qualified Data.Set                          as Set
 import           Data.Tagged
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as TL
@@ -92,7 +97,7 @@ import qualified Data.Vector.Storable              as VS
 import qualified Data.Vector.Unboxed               as VU
 import           Data.Void
 import           GHC.Generics
-
+import           Prelude                           hiding (lookup)
 
 -- |
 -- Type family for getting the type of the key of a monomorphic container.
@@ -108,7 +113,7 @@ type instance MonoKey (Arg a b)            = ()
 type instance MonoKey BS.ByteString        = Int
 type instance MonoKey BSL.ByteString       = Int
 --type instance MonoKey (Cofree f a)         = Key (Cofree f)
-type instance MonoKey (Compose f g a)      = ()
+type instance MonoKey (Compose f g a)      = (MonoKey (f a), MonoKey (g a))
 type instance MonoKey (Const m a)          = ()
 type instance MonoKey (ContT r m a)        = ()
 type instance MonoKey (Either a b)         = ()
@@ -129,9 +134,9 @@ type instance MonoKey (MaybeT m a)         = ()
 type instance MonoKey (NonEmpty a)         = Int
 type instance MonoKey (Option a)           = ()
 --type instance MonoKey (Par1 a)             = ()
-type instance MonoKey (Product f g a)      = ()
+type instance MonoKey (Product f g a)      = Either (Key f) (Key g)
 --type instance MonoKey (Proxy a)            = Void
-type instance MonoKey (ReaderT r m a)      = ()
+type instance MonoKey (ReaderT r m a)      = (r, Key m)
 --type instance MonoKey (Rec1 f a)           = Key (Rec1 f)
 type instance MonoKey (RWST r w s m a)     = ()
 type instance MonoKey (S.RWST r w s m a)   = ()
@@ -226,19 +231,25 @@ class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTr
 
 
 -- |
--- Monomorphic container that can be indexed by a key for an element.
-class MonoLookup mono => MonoIndexable mono where
-    {-# MINIMAL oindex #-}
-
-    oindex :: mono -> MonoKey mono -> Element mono
-
-
--- |
 -- Monomorphic container that can be querried by a key for an element.
 class MonoLookup mono where
     {-# MINIMAL olookup #-}
 
     olookup :: MonoKey mono -> mono -> Maybe (Element mono)
+    default olookup :: (Lookup f, Element (f a) ~ a, MonoKey (f a) ~ Key f, f a ~ mono)
+                    => MonoKey mono -> mono -> Maybe (Element mono)
+    olookup = lookup
+
+
+-- |
+-- Monomorphic container that can be indexed by a key for an element.
+class MonoLookup mono => MonoIndexable mono where
+    {-# MINIMAL oindex #-}
+
+    oindex :: mono -> MonoKey mono -> Element mono
+    default oindex :: (Indexable f, Element (f a) ~ a, MonoKey (f a) ~ Key f, f a ~ mono)
+                   => mono -> MonoKey mono -> Element mono
+    oindex = index
 
 
 -- |
@@ -334,10 +345,11 @@ instance MonoKeyed BSL.ByteString where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Functor f, Functor g) => MonoKeyed (Compose f g a) where
-    {-# INLINE omapWithKey #-}
-
-    omapWithKey = omapWithUnitKey
+instance ( Keyed f
+         , Keyed g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoKeyed (Compose f g a)
 
 
 -- |
@@ -444,18 +456,16 @@ instance MonoKeyed (Option a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Functor f, Functor g) => MonoKeyed (Product f g a) where
-    {-# INLINE omapWithKey #-}
-
-    omapWithKey = omapWithUnitKey
+instance ( Keyed f
+         , Keyed g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoKeyed (Product f g a)
 
 
 -- |
 -- /Since @v0.1.0@/ 
-instance Functor m => MonoKeyed (ReaderT r m a) where
-    {-# INLINE omapWithKey #-}
-
-    omapWithKey = omapWithUnitKey
+instance Keyed m => MonoKeyed (ReaderT r m a)
 
 
 -- |
@@ -635,10 +645,20 @@ instance MonoFoldableWithKey BSL.ByteString where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Foldable f, Foldable g) => MonoFoldableWithKey (Compose f g a) where
+instance ( FoldableWithKey f
+         , FoldableWithKey g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoFoldableWithKey (Compose f g a) where
     {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldMapWithKey = monoFoldableWithUnitKey
+    ofoldMapWithKey = foldMapWithKey
+
+    ofoldrWithKey   = foldrWithKey
+
+    ofoldlWithKey   = foldlWithKey
 
 
 -- |
@@ -770,10 +790,20 @@ instance MonoFoldableWithKey (Option a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Foldable f, Foldable g) => MonoFoldableWithKey (Product f g a) where
+instance ( FoldableWithKey f
+         , FoldableWithKey g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoFoldableWithKey (Product f g a) where
     {-# INLINE ofoldMapWithKey #-}
+    {-# INLINE ofoldrWithKey #-}
+    {-# INLINE ofoldlWithKey #-}
 
-    ofoldMapWithKey = monoFoldableWithUnitKey
+    ofoldMapWithKey = foldMapWithKey
+
+    ofoldrWithKey   = foldrWithKey
+
+    ofoldlWithKey   = foldlWithKey
 
 
 -- |
@@ -936,10 +966,14 @@ instance MonoTraversableWithKey BSL.ByteString where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Traversable f, Traversable g) => MonoTraversableWithKey (Compose f g a) where
+instance ( MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         , TraversableWithKey f
+         , TraversableWithKey g
+         ) => MonoTraversableWithKey (Compose f g a) where
     {-# INLINE otraverseWithKey #-}
 
-    otraverseWithKey = monoTraversableWithUnitKey
+    otraverseWithKey = traverseWithKey
 
 
 -- |
@@ -1043,10 +1077,14 @@ instance MonoTraversableWithKey (Option a) where
 
 -- |
 -- /Since @v0.1.0@/ 
-instance (Traversable f, Traversable g) => MonoTraversableWithKey (Product f g a) where
+instance ( MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         , TraversableWithKey f
+         , TraversableWithKey g
+         ) => MonoTraversableWithKey (Product f g a) where
     {-# INLINE otraverseWithKey #-}
 
-    otraverseWithKey = monoTraversableWithUnitKey
+    otraverseWithKey = traverseWithKey
 
 
 -- |
@@ -1149,6 +1187,556 @@ instance Traversable f => MonoTraversableWithKey (S.WriterT w f a) where
     otraverseWithKey = monoTraversableWithUnitKey
 
 
+-- * MonoLookup Instances
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup [a] where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (a, b) where
+    {-# INLINE olookup #-}
+
+    olookup _ (_, v) = Just v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Arg a b) where
+    {-# INLINE olookup #-}
+
+    olookup _ (Arg _ v) = Just v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup BS.ByteString where
+    {-# INLINE olookup #-}
+
+    olookup i bs
+      |  i < 0
+      || i >= BS.length bs = Nothing
+      |  otherwise         = Just $ BS.index bs i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup BSL.ByteString where
+    {-# INLINE olookup #-}
+
+    olookup i bs
+      |  i < 0
+      || i >= fromEnum (BSL.length bs) = Nothing
+      |  otherwise                     = Just . BSL.index bs $ toEnum i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Lookup f
+         , Lookup g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoLookup (Compose f g a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Either a b) where
+    {-# INLINE olookup #-}
+
+    olookup _ (Left  _) = Nothing
+    olookup _ (Right v) = Just v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Eq k, Hashable k) => MonoLookup (HashMap k v) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (HashSet v) where
+    {-# INLINE olookup #-}
+
+    olookup =  monoLookupFoldable
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Identity a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (IntMap a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup IntSet where
+    {-# INLINE olookup #-}
+
+    olookup = monoLookupFoldable
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord k => MonoLookup (Map k v) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Maybe a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (NonEmpty a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Option a) where
+    {-# INLINE olookup #-}
+
+    olookup = const getOption
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Lookup f
+         , Lookup g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoLookup (Product f g a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Lookup m => MonoLookup (ReaderT r m a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Seq a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord a => MonoLookup (Set a) where
+    {-# INLINE olookup #-}
+
+    olookup = monoLookupFoldable
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup T.Text where
+    {-# INLINE olookup #-}
+
+    olookup i ts
+      |  i < 0
+      || i >= T.length ts = Nothing
+      |  otherwise        = Just $ T.index ts i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup TL.Text where
+    {-# INLINE olookup #-}
+
+    olookup i ts
+      |  i < 0
+      || i >= fromEnum (TL.length ts) = Nothing
+      |  otherwise                    = Just . TL.index ts $ toEnum i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Tree a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (Vector a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VU.Unbox a => MonoLookup (VU.Vector a) where
+
+    {-# INLINE olookup #-}
+    olookup = flip (VU.!?)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VS.Storable a => MonoLookup (VS.Vector a) where
+
+    {-# INLINE olookup #-}
+    olookup = flip (VS.!?)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (ViewL a) where
+    {-# INLINE olookup #-}
+
+    olookup _ EmptyL = Nothing
+    olookup _ (v:<_) = Just v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (ViewR a) where
+    {-# INLINE olookup #-}
+
+    olookup _ EmptyR = Nothing
+    olookup _ (_:>v) = Just v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoLookup (ZipList a) where
+    {-# INLINE olookup #-}
+
+    olookup = lookup
+
+
+-- * MonoIndexable Instances
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable [a] where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (a, b) where
+    {-# INLINE oindex #-}
+
+    oindex (_, v) = const v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Arg a b) where
+    {-# INLINE oindex #-}
+
+    oindex (Arg _ v) = const v
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable BS.ByteString where
+    {-# INLINE oindex #-}
+
+    oindex bs i
+      |  i < 0
+      || i >= BS.length bs = error $ mconcat [ "oindex on ByteString at point ", show i, " is outside the range: [0, ", show (BS.length bs - 1), "]."]
+      |  otherwise         = BS.index bs i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable BSL.ByteString where
+    {-# INLINE oindex #-}
+
+    oindex bs i
+      |  i < 0
+      || i >= fromEnum (BSL.length bs) = error $ mconcat [ "oindex on Lazy ByteString at point ", show i, " is outside the range: [0, ", show (BSL.length bs - 1), "]."]
+      |  otherwise                     = BSL.index bs $ toEnum i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Indexable f
+         , Indexable g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoIndexable (Compose f g a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Either a b) where
+    {-# INLINE oindex #-}
+
+    oindex (Right v) = const $ v
+    oindex (Left  _) = error
+        "oindex on Either is Left, cannot retreive a value. Consider using olookup instead."
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Eq k, Hashable k) => MonoIndexable (HashMap k v) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (HashSet v) where
+    {-# INLINE oindex #-}
+
+    oindex hs i =
+      case olookup i hs of
+        Just v  -> v
+        Nothing -> error $ mconcat
+          [ "oindex on Set at point "
+          , show i
+          , " is outside the range: [0, "
+          , show (HS.size hs - 1)
+          , "]."
+          ]
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Identity a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (IntMap a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable IntSet where
+    {-# INLINE oindex #-}
+
+    oindex is i =
+      case olookup i is of
+        Just v  -> v
+        Nothing -> error $ mconcat
+          [ "oindex on IntSet at point "
+          , show i
+          , " is outside the range: [0, "
+          , show (IS.size is - 1)
+          , "]."
+          ]
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord k => MonoIndexable (Map k v) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Maybe a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (NonEmpty a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Option a) where
+    {-# INLINE oindex #-}
+
+    oindex o _ =
+      case getOption o of
+        Just v  -> v
+        Nothing -> error 
+            "oindex on empty Option, cannot retreive a value. Consider using olookup instead."
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( Indexable f
+         , Indexable g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoIndexable (Product f g a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Indexable m => MonoIndexable (ReaderT r m a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Seq a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord a => MonoIndexable (Set a) where
+    {-# INLINE oindex #-}
+
+    oindex s i =
+      case olookup i s of
+        Just v  -> v
+        Nothing -> error $ mconcat
+          [ "oindex on Set at point "
+          , show i
+          , " is outside the range: [0, "
+          , show (Set.size s - 1)
+          , "]."
+          ]
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable T.Text where
+    {-# INLINE oindex #-}
+
+    oindex ts i
+      |  i < 0
+      || i >= T.length ts = error $ mconcat [ "oindex on Text at point ", show i, " is outside the range: [0, ", show (T.length ts - 1), "]."]
+      |  otherwise        = T.index ts i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable TL.Text where
+    {-# INLINE oindex #-}
+
+    oindex ts i
+      |  i < 0
+      || i >= fromEnum (TL.length ts) = error $ mconcat [ "oindex on Lazy Text at point ", show i, " is outside the range: [0, ", show (TL.length ts - 1), "]."]
+      |  otherwise                    = TL.index ts $ toEnum i
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Tree a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (Vector a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VU.Unbox a => MonoIndexable (VU.Vector a) where
+
+    {-# INLINE oindex #-}
+    oindex = (VU.!)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VS.Storable a => MonoIndexable (VS.Vector a) where
+
+    {-# INLINE oindex #-}
+    oindex = (VS.!)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (ViewL a) where
+    {-# INLINE oindex #-}
+
+    oindex (v:<_) = const v
+    oindex EmptyL = error
+        "oindex on ViewL is EmptyL, cannot retreive a value. Consider using olookup instead."
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (ViewR a) where
+    {-# INLINE oindex #-}
+
+    oindex (_:>v) = const v
+    oindex EmptyR = error
+        "oindex on ViewR is EmptyR, cannot retreive a value. Consider using olookup instead."
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoIndexable (ZipList a) where
+    {-# INLINE oindex #-}
+
+    oindex = index
+
+
 -- * Unwraping functions
 
 
@@ -1212,9 +1800,9 @@ monoFoldableWithIntegralKey
 monoFoldableWithIntegralKey f z = (`S.evalState` 0) . ofoldlM g z
   where
     g a e = do
-        k <- S.get
+        !k <- S.get
         S.modify succ
-        return $ f a k e
+        pure $ f a k e
 
 
 monoTraversableWithUnitKey
@@ -1223,3 +1811,11 @@ monoTraversableWithUnitKey
 monoTraversableWithUnitKey f = otraverse (f ())
 
 
+monoLookupFoldable :: (Integral i, MonoFoldable mono) => i -> mono -> Maybe (Element mono)
+monoLookupFoldable i t
+      | i < 0 = Nothing
+      | otherwise = go i $ otoList t
+      where
+        go  _    []  = Nothing
+        go  0 (x:[]) = Just x
+        go !n (_:xs) = go (n-1) xs
