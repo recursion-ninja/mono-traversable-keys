@@ -60,7 +60,7 @@ import           Control.Monad.Trans.Writer               (WriterT)
 import qualified Control.Monad.Trans.Writer.Strict as S   (WriterT)
 import qualified Data.ByteString                   as BS
 import qualified Data.ByteString.Lazy              as BSL
-import           Data.Foldable                            (Foldable)
+import           Data.Foldable
 import           Data.Functor.Compose                     (Compose(..))
 import           Data.Functor.Identity                    (Identity)
 import           Data.Functor.Product                     (Product(..))
@@ -68,7 +68,7 @@ import           Data.Hashable
 import           Data.HashMap.Strict                      (HashMap)
 import qualified Data.HashMap.Strict               as HM
 import           Data.HashSet                             (HashSet)
-import           Data.HashSet                      as HS
+import qualified Data.HashSet                      as HS
 import           Data.Int                                 (Int)
 import           Data.IntMap                              (IntMap)
 import qualified Data.IntMap                       as IM
@@ -2462,6 +2462,368 @@ instance MonoZip (ZipList a) where
     ozipWith = zipWith
 
 
+-- * MonoZipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (r -> a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f = zipWith (f ())
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey [a] where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (a, b) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (_, b1) (a, b2) = (a, f () b1 b2)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Arg a b) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (Arg _ b1) (Arg a b2) = Arg a $ f () b1 b2
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey BS.ByteString where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f bs = BS.pack . zipWithKey f (BS.unpack bs) . BS.unpack
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey BSL.ByteString where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f bs = BSL.pack . zipWithKey f (BSL.unpack bs) . BSL.unpack
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( ZipWithKey f
+         , ZipWithKey g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoZipWithKey (Compose f g a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Const m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = const $ const id
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Functor m => MonoZipWithKey (ContT r m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Either a b) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Eq k, Hashable k) => MonoZipWithKey (HashMap k v) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = HM.intersectionWithKey f x y <> HM.difference x y <> HM.difference y x
+
+
+-- Cannot instantiate because the map might violate the internal structure
+-- instance MonoZipWithKey (HashSet v)
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Identity a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZipWithKey (IdentityT m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (IntMap a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = IM.intersectionWithKey f x y <> IM.difference x y <> IM.difference y x
+
+
+-- Cannot instantiate because the map might violate the internal structure
+-- instance MonoZipWithKey IntSet
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (IO a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZipWithKey (ListT m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = ListT $ zipWithKey f <$> runListT x <*> runListT y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Ord k => MonoZipWithKey (Map k v) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = Map.intersectionWithKey f x y <> Map.difference x y <> Map.difference y x
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Maybe a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Monad m => MonoZipWithKey (MaybeT m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (NonEmpty a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Option a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = (f ()) <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance ( ZipWithKey f
+         , ZipWithKey g
+         , MonoKey (f a) ~ Key f
+         , MonoKey (g a) ~ Key g
+         ) => MonoZipWithKey (Product f g a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, ZipWithKey m) => MonoZipWithKey (ReaderT r m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Semigroup w) => MonoZipWithKey (RWST r w s m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (RWST x) (RWST y) = RWST $ \r s ->
+        let g (a1, _, w1) (a2, _, w2) = (f () a1 a2, s, w1 <> w2)
+        in  g <$> x r s <*> y r s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Semigroup w) => MonoZipWithKey (S.RWST r w s m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (S.RWST x) (S.RWST y) = S.RWST $ \r s ->
+        let g (a1, _, w1) (a2, _, w2) = (f () a1 a2, s, w1 <> w2)
+        in  g <$> x r s <*> y r s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Seq a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- Cannot instantiate because the map might violate the internal structure
+-- instance MonoZipWithKey Set
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZipWithKey (StateT s m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (StateT x) (StateT y) = StateT $ \ s ->
+        let g (a1, _) (a2, _) = (f () a1 a2, s)
+        in  g <$> x s <*> y s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Applicative m => MonoZipWithKey (S.StateT s m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f (S.StateT x) (S.StateT y) = S.StateT $ \ s ->
+        let g (a1, _) (a2, _) = (f () a1 a2, s)
+        in  g <$> x s <*> y s
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey T.Text where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f ts = T.pack . zipWithKey f (T.unpack ts) . T.unpack
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey TL.Text where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f ts = TL.pack . zipWithKey f (TL.unpack ts) . TL.unpack
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Tree a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = zipWithKey
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (Vector a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = V.izipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VU.Unbox a => MonoZipWithKey (VU.Vector a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = VU.izipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance VS.Storable a => MonoZipWithKey (VS.Vector a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey = VS.izipWith
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (ViewL a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey _ EmptyL _ = EmptyL
+    ozipWithKey _ _ EmptyL = EmptyL
+    ozipWithKey f (x:<xs) (y:<ys) = f () x y :< Seq.fromList (zipWith (f ()) (toList xs) (toList ys))
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (ViewR a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey _ EmptyR _ = EmptyR
+    ozipWithKey _ _ EmptyR = EmptyR
+    ozipWithKey f (xs:>x) (ys:>y) = Seq.fromList (zipWith (f ()) (toList xs) (toList ys)) :> f () x y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Arrow a => MonoZipWithKey (WrappedArrow a b c) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = f () <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance Monad m => MonoZipWithKey (WrappedMonad m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = f () <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Monoid w) => MonoZipWithKey (WriterT w m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = f () <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance (Applicative m, Monoid w) => MonoZipWithKey (S.WriterT w m a) where
+    {-# INLINE ozipWithKey #-}
+
+    ozipWithKey f x y = f () <$> x <*> y
+
+
+-- |
+-- /Since @v0.1.0@/ 
+instance MonoZipWithKey (ZipList a) where
+    {-# INLINE ozipWithKey #-}
+  
+    ozipWithKey = zipWithKey
+
+
 -- * Unwraping functions
 
 
@@ -2538,9 +2900,31 @@ monoTraversableWithUnitKey f = otraverse (f ())
 
 monoLookupFoldable :: (Integral i, MonoFoldable mono) => i -> mono -> Maybe (Element mono)
 monoLookupFoldable i t
-      | i < 0 = Nothing
-      | otherwise = go i $ otoList t
-      where
-        go  _    []  = Nothing
-        go  0   [x]  = Just x
-        go !n (_:xs) = go (n-1) xs
+  | i < 0 = Nothing
+  | otherwise = go i $ otoList t
+  where
+    go  _    []  = Nothing
+    go  0   [x]  = Just x
+    go !n (_:xs) = go (n-1) xs
+
+
+{-
+monoZipWithIntegralKey
+  :: ( Integral i, MonoTraversable mono)
+  => (i -> Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
+monoZipWithIntegralKey f as bs = (`S.evalState` (0, otoList xs)) $ otraverse g ys
+  where
+    (xs, ys, swapped)
+      | olength xs >= olength ys = (as, bs, False)
+      | otherwise                = (bs, as, True )
+
+    g y = do
+        (!k, v) <- S.get
+        case v of
+          []   -> pure y
+          z:zs -> do
+              S.put ((k+1), zs)
+              pure . f k $ if swapped
+                           then y z
+                           else z y
+-}
