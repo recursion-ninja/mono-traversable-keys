@@ -17,7 +17,7 @@ description:
   <http://hackage.haskell.org/package/mono-traversable mono-traversable> and
   <http://hackage.haskell.org/package/keys keys>,
   designed to provided the functionality of the @keys@ package to the monomorphic
-  containers enhanced by the @mono-trversable@ package.
+  containers enhanced by the @mono-traversable@ package.
 
 extra-source-files:
   README.md

@@ -212,9 +212,6 @@ class MonoFoldable mono => MonoFoldableWithKey mono where
 
 -- |
 -- Monomorphic containers that can be traversed from left to right over thier pairs of elements and corresponding keys.
---
--- NOTE: Due to limitations with the role system, GHC is yet unable to provide newtype-derivation of
--- 'MonoTraversableWithKey'. See <https://stackoverflow.com/questions/49776924/newtype-deriving-issequence>.
 class (MonoKeyed mono, MonoFoldableWithKey mono, MonoTraversable mono) => MonoTraversableWithKey mono where
     {-# MINIMAL otraverseWithKey #-}
 
@@ -257,7 +254,7 @@ class MonoLookup mono => MonoIndexable mono where
 
 
 -- |
--- Monomorphic container that can adjust elements "in place".
+-- Monomorphic container that can adjust elements "in place."
 class MonoFunctor mono => MonoAdjustable mono where
     {-# MINIMAL oadjust #-}
 
@@ -276,16 +273,14 @@ class MonoFunctor mono => MonoAdjustable mono where
 -- Laws:
 --
 -- @
--- 'omap' 'fst' ('ozip' u u) = u
--- 'omap' 'snd' ('ozip' u u) = u
--- 'ozip' ('omap' 'fst' u) ('omap' 'snd' u) = u
--- 'ozip' ('flip' (,)) x y = 'ozip' y x
+-- 'ozipWith' const u u === 'ozipWith' (flip const) u u === u
+-- 'ozipWith' ('flip' f) x y === 'ozipWith' f y x
+-- 'ozipWith' (\a b -> f (g a) (h b)) x y === 'ozipWith' f ('omap' g x) ('omap' h y)
 -- @
 class MonoFunctor mono => MonoZip mono where
     {-# MINIMAL ozipWith #-}
 
     ozipWith :: (Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
---    ozipWith f a b = uncurry f <$> ozip a b
 
 
 -- |
@@ -302,7 +297,7 @@ class (MonoKeyed mono, MonoZip mono) => MonoZipWithKey mono where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (r -> a) where
     {-# INLINE omapWithKey #-}
 
@@ -310,12 +305,12 @@ instance MonoKeyed (r -> a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed [a]
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (a, b) where
     {-# INLINE omapWithKey #-}
 
@@ -323,7 +318,7 @@ instance MonoKeyed (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Arg a b) where
     {-# INLINE omapWithKey #-}
 
@@ -331,7 +326,7 @@ instance MonoKeyed (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed BS.ByteString where
     {-# INLINE omapWithKey #-}
 
@@ -341,7 +336,7 @@ instance MonoKeyed BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed BSL.ByteString where
     {-# INLINE omapWithKey #-}
 
@@ -351,7 +346,7 @@ instance MonoKeyed BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Keyed f
          , Keyed g
          , MonoKey (f a) ~ Key f
@@ -360,7 +355,7 @@ instance ( Keyed f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Const m a) where
     {-# INLINE omapWithKey #-}
 
@@ -368,7 +363,7 @@ instance MonoKeyed (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (ContT r m a) where
     {-# INLINE omapWithKey #-}
 
@@ -376,7 +371,7 @@ instance Functor m => MonoKeyed (ContT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Either a b) where
     {-# INLINE omapWithKey #-}
 
@@ -384,7 +379,7 @@ instance MonoKeyed (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (HashMap k v)
 
 
@@ -393,12 +388,12 @@ instance MonoKeyed (HashMap k v)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Identity a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (IdentityT m a) where
     {-# INLINE omapWithKey #-}
 
@@ -406,7 +401,7 @@ instance Functor m => MonoKeyed (IdentityT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (IntMap a)
 
 
@@ -415,7 +410,7 @@ instance MonoKeyed (IntMap a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (IO a) where
     {-# INLINE omapWithKey #-}
 
@@ -423,7 +418,7 @@ instance MonoKeyed (IO a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (ListT m a) where
     {-# INLINE omapWithKey #-}
 
@@ -431,17 +426,17 @@ instance Functor m => MonoKeyed (ListT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Map k v)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Maybe a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (MaybeT m a) where
     {-# INLINE omapWithKey #-}
 
@@ -449,12 +444,12 @@ instance Functor m => MonoKeyed (MaybeT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (NonEmpty a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Option a) where
     {-# INLINE omapWithKey #-}
 
@@ -462,7 +457,7 @@ instance MonoKeyed (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Keyed f
          , Keyed g
          , MonoKey (f a) ~ Key f
@@ -471,12 +466,12 @@ instance ( Keyed f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Keyed m => MonoKeyed (ReaderT r m a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (RWST r w s m a) where
     {-# INLINE omapWithKey #-}
 
@@ -484,7 +479,7 @@ instance Functor m => MonoKeyed (RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (S.RWST r w s m a) where
     {-# INLINE omapWithKey #-}
 
@@ -492,7 +487,7 @@ instance Functor m => MonoKeyed (S.RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Seq a)
 
 
@@ -501,7 +496,7 @@ instance MonoKeyed (Seq a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (StateT s m a) where
     {-# INLINE omapWithKey #-}
 
@@ -509,7 +504,7 @@ instance Functor m => MonoKeyed (StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (S.StateT s m a) where
     {-# INLINE omapWithKey #-}
 
@@ -517,7 +512,7 @@ instance Functor m => MonoKeyed (S.StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed T.Text where
     {-# INLINE omapWithKey #-}
 
@@ -527,7 +522,7 @@ instance MonoKeyed T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed TL.Text where
     {-# INLINE omapWithKey #-}
 
@@ -537,17 +532,17 @@ instance MonoKeyed TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Tree a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (Vector a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoKeyed (VU.Vector a) where
     {-# INLINE omapWithKey #-}
 
@@ -555,7 +550,7 @@ instance VU.Unbox a => MonoKeyed (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoKeyed (VS.Vector a) where
     {-# INLINE omapWithKey #-}
 
@@ -563,7 +558,7 @@ instance VS.Storable a => MonoKeyed (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (ViewL a) where
     {-# INLINE omapWithKey #-}
 
@@ -571,7 +566,7 @@ instance MonoKeyed (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (ViewR a) where
     {-# INLINE omapWithKey #-}
 
@@ -579,7 +574,7 @@ instance MonoKeyed (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Arrow a => MonoKeyed (WrappedArrow a b c) where
     {-# INLINE omapWithKey #-}
 
@@ -587,7 +582,7 @@ instance Arrow a => MonoKeyed (WrappedArrow a b c) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Monad m => MonoKeyed (WrappedMonad m a) where
     {-# INLINE omapWithKey #-}
 
@@ -595,7 +590,7 @@ instance Monad m => MonoKeyed (WrappedMonad m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (WriterT w m a) where
     {-# INLINE omapWithKey #-}
 
@@ -603,7 +598,7 @@ instance Functor m => MonoKeyed (WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoKeyed (S.WriterT w m a) where
     {-# INLINE omapWithKey #-}
 
@@ -611,7 +606,7 @@ instance Functor m => MonoKeyed (S.WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoKeyed (ZipList a)
 
 
@@ -619,7 +614,7 @@ instance MonoKeyed (ZipList a)
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey [a] where
     {-# INLINE ofoldlWithKey #-}
 
@@ -627,7 +622,7 @@ instance MonoFoldableWithKey [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (a, b) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -635,7 +630,7 @@ instance MonoFoldableWithKey (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey BS.ByteString where
     {-# INLINE ofoldlWithKey #-}
 
@@ -643,7 +638,7 @@ instance MonoFoldableWithKey BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey BSL.ByteString where
     {-# INLINE ofoldlWithKey #-}
 
@@ -651,7 +646,7 @@ instance MonoFoldableWithKey BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( FoldableWithKey f
          , FoldableWithKey g
          , MonoKey (f a) ~ Key f
@@ -669,7 +664,7 @@ instance ( FoldableWithKey f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Const m a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -677,7 +672,7 @@ instance MonoFoldableWithKey (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Either a b) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -685,7 +680,7 @@ instance MonoFoldableWithKey (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (HashMap k v) where
     {-# INLINE ofoldrWithKey #-}
     {-# INLINE ofoldlWithKey #-}
@@ -696,7 +691,7 @@ instance MonoFoldableWithKey (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (HashSet v) where
     {-# INLINE ofoldlWithKey #-}
 
@@ -704,7 +699,7 @@ instance MonoFoldableWithKey (HashSet v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Identity a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -712,7 +707,7 @@ instance MonoFoldableWithKey (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (IdentityT f a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -720,7 +715,7 @@ instance Foldable f => MonoFoldableWithKey (IdentityT f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (IntMap a) where
     {-# INLINE ofoldMapWithKey #-}
     {-# INLINE ofoldrWithKey #-}
@@ -734,7 +729,7 @@ instance MonoFoldableWithKey (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey IntSet where
     {-# INLINE ofoldlWithKey #-}
 
@@ -742,7 +737,7 @@ instance MonoFoldableWithKey IntSet where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (ListT f a) where
     {-# INLINE ofoldlWithKey #-}
 
@@ -750,7 +745,7 @@ instance Foldable f => MonoFoldableWithKey (ListT f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Map k v) where
     {-# INLINE ofoldMapWithKey #-}
     {-# INLINE ofoldrWithKey #-}
@@ -764,7 +759,7 @@ instance MonoFoldableWithKey (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Maybe a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -772,7 +767,7 @@ instance MonoFoldableWithKey (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (MaybeT f a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -780,7 +775,7 @@ instance Foldable f => MonoFoldableWithKey (MaybeT f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (NonEmpty a) where
     {-# INLINE ofoldlWithKey #-}
 
@@ -788,7 +783,7 @@ instance MonoFoldableWithKey (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Option a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -796,7 +791,7 @@ instance MonoFoldableWithKey (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( FoldableWithKey f
          , FoldableWithKey g
          , MonoKey (f a) ~ Key f
@@ -814,7 +809,7 @@ instance ( FoldableWithKey f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Seq a) where
     {-# INLINE ofoldMapWithKey #-}
     {-# INLINE ofoldrWithKey #-}
@@ -828,7 +823,7 @@ instance MonoFoldableWithKey (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord e => MonoFoldableWithKey (Set e) where
     {-# INLINE ofoldlWithKey #-}
 
@@ -836,7 +831,7 @@ instance Ord e => MonoFoldableWithKey (Set e) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey T.Text where
     {-# INLINE ofoldlWithKey #-}
 
@@ -844,7 +839,7 @@ instance MonoFoldableWithKey T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey TL.Text where
     {-# INLINE ofoldlWithKey #-}
 
@@ -852,7 +847,7 @@ instance MonoFoldableWithKey TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Tree a) where
     {-# INLINE ofoldMapWithKey #-}
     {-# INLINE ofoldrWithKey #-}
@@ -866,7 +861,7 @@ instance MonoFoldableWithKey (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (Vector a) where
     {-# INLINE ofoldrWithKey #-}
     {-# INLINE ofoldlWithKey #-}
@@ -877,7 +872,7 @@ instance MonoFoldableWithKey (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoFoldableWithKey (VU.Vector a) where
     {-# INLINE ofoldrWithKey #-}
     {-# INLINE ofoldlWithKey #-}
@@ -888,7 +883,7 @@ instance VU.Unbox a => MonoFoldableWithKey (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoFoldableWithKey (VS.Vector a) where
     {-# INLINE ofoldrWithKey #-}
     {-# INLINE ofoldlWithKey #-}
@@ -899,7 +894,7 @@ instance VS.Storable a => MonoFoldableWithKey (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (ViewL a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -907,7 +902,7 @@ instance MonoFoldableWithKey (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoFoldableWithKey (ViewR a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -915,7 +910,7 @@ instance MonoFoldableWithKey (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (WriterT w f a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -923,7 +918,7 @@ instance Foldable f => MonoFoldableWithKey (WriterT w f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (S.WriterT w f a) where
     {-# INLINE ofoldMapWithKey #-}
 
@@ -934,7 +929,7 @@ instance Foldable f => MonoFoldableWithKey (S.WriterT w f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey [a] where
     {-# INLINE otraverseWithKey #-}
 
@@ -942,7 +937,7 @@ instance MonoTraversableWithKey [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (a, b) where
     {-# INLINE otraverseWithKey #-}
 
@@ -950,7 +945,7 @@ instance MonoTraversableWithKey (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey BS.ByteString where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -961,7 +956,7 @@ instance MonoTraversableWithKey BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey BSL.ByteString where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -972,7 +967,7 @@ instance MonoTraversableWithKey BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( MonoKey (f a) ~ Key f
          , MonoKey (g a) ~ Key g
          , TraversableWithKey f
@@ -984,7 +979,7 @@ instance ( MonoKey (f a) ~ Key f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Const m a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -992,7 +987,7 @@ instance MonoTraversableWithKey (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Either a b) where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -1004,7 +999,7 @@ instance MonoTraversableWithKey (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (HashMap k v) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1012,7 +1007,7 @@ instance MonoTraversableWithKey (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Identity a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1020,7 +1015,7 @@ instance MonoTraversableWithKey (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (IdentityT f a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1028,7 +1023,7 @@ instance Traversable f => MonoTraversableWithKey (IdentityT f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (IntMap a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1036,14 +1031,14 @@ instance MonoTraversableWithKey (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (ListT f a) where
 
    otraverseWithKey f = fmap ListT . traverse (traverseWithKey f) . runListT
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Map k v) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1051,7 +1046,7 @@ instance MonoTraversableWithKey (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Maybe a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1059,7 +1054,7 @@ instance MonoTraversableWithKey (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (MaybeT f a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1067,7 +1062,7 @@ instance Traversable f => MonoTraversableWithKey (MaybeT f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (NonEmpty a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1075,7 +1070,7 @@ instance MonoTraversableWithKey (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Option a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1083,7 +1078,7 @@ instance MonoTraversableWithKey (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( MonoKey (f a) ~ Key f
          , MonoKey (g a) ~ Key g
          , TraversableWithKey f
@@ -1095,7 +1090,7 @@ instance ( MonoKey (f a) ~ Key f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Seq a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1103,7 +1098,7 @@ instance MonoTraversableWithKey (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey T.Text where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -1114,7 +1109,7 @@ instance MonoTraversableWithKey T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey TL.Text where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -1125,7 +1120,7 @@ instance MonoTraversableWithKey TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Tree a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1133,7 +1128,7 @@ instance MonoTraversableWithKey (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (Vector a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1141,7 +1136,7 @@ instance MonoTraversableWithKey (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoTraversableWithKey (VU.Vector a) where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -1152,7 +1147,7 @@ instance VU.Unbox a => MonoTraversableWithKey (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoTraversableWithKey (VS.Vector a) where
     {-# INLINE otraverseWithKey #-}
     {-# INLINE omapWithKeyM #-}
@@ -1163,7 +1158,7 @@ instance VS.Storable a => MonoTraversableWithKey (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (ViewL a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1171,7 +1166,7 @@ instance MonoTraversableWithKey (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoTraversableWithKey (ViewR a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1179,7 +1174,7 @@ instance MonoTraversableWithKey (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (WriterT w f a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1187,7 +1182,7 @@ instance Traversable f => MonoTraversableWithKey (WriterT w f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (S.WriterT w f a) where
     {-# INLINE otraverseWithKey #-}
 
@@ -1198,7 +1193,7 @@ instance Traversable f => MonoTraversableWithKey (S.WriterT w f a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup [a] where
     {-# INLINE olookup #-}
 
@@ -1206,7 +1201,7 @@ instance MonoLookup [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (a, b) where
     {-# INLINE olookup #-}
 
@@ -1214,7 +1209,7 @@ instance MonoLookup (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Arg a b) where
     {-# INLINE olookup #-}
 
@@ -1222,7 +1217,7 @@ instance MonoLookup (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup BS.ByteString where
     {-# INLINE olookup #-}
 
@@ -1233,7 +1228,7 @@ instance MonoLookup BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup BSL.ByteString where
     {-# INLINE olookup #-}
 
@@ -1244,7 +1239,7 @@ instance MonoLookup BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Lookup f
          , Lookup g
          , MonoKey (f a) ~ Key f
@@ -1256,7 +1251,7 @@ instance ( Lookup f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Either a b) where
     {-# INLINE olookup #-}
 
@@ -1265,7 +1260,7 @@ instance MonoLookup (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Eq k, Hashable k) => MonoLookup (HashMap k v) where
     {-# INLINE olookup #-}
 
@@ -1273,7 +1268,7 @@ instance (Eq k, Hashable k) => MonoLookup (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (HashSet v) where
     {-# INLINE olookup #-}
 
@@ -1281,7 +1276,7 @@ instance MonoLookup (HashSet v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Identity a) where
     {-# INLINE olookup #-}
 
@@ -1289,7 +1284,7 @@ instance MonoLookup (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (IntMap a) where
     {-# INLINE olookup #-}
 
@@ -1297,7 +1292,7 @@ instance MonoLookup (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup IntSet where
     {-# INLINE olookup #-}
 
@@ -1305,7 +1300,7 @@ instance MonoLookup IntSet where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord k => MonoLookup (Map k v) where
     {-# INLINE olookup #-}
 
@@ -1313,7 +1308,7 @@ instance Ord k => MonoLookup (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Maybe a) where
     {-# INLINE olookup #-}
 
@@ -1321,7 +1316,7 @@ instance MonoLookup (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (NonEmpty a) where
     {-# INLINE olookup #-}
 
@@ -1329,7 +1324,7 @@ instance MonoLookup (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Option a) where
     {-# INLINE olookup #-}
 
@@ -1337,7 +1332,7 @@ instance MonoLookup (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Lookup f
          , Lookup g
          , MonoKey (f a) ~ Key f
@@ -1349,7 +1344,7 @@ instance ( Lookup f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Lookup m => MonoLookup (ReaderT r m a) where
     {-# INLINE olookup #-}
 
@@ -1357,7 +1352,7 @@ instance Lookup m => MonoLookup (ReaderT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Seq a) where
     {-# INLINE olookup #-}
 
@@ -1365,7 +1360,7 @@ instance MonoLookup (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord a => MonoLookup (Set a) where
     {-# INLINE olookup #-}
 
@@ -1373,7 +1368,7 @@ instance Ord a => MonoLookup (Set a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup T.Text where
     {-# INLINE olookup #-}
 
@@ -1384,7 +1379,7 @@ instance MonoLookup T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup TL.Text where
     {-# INLINE olookup #-}
 
@@ -1395,7 +1390,7 @@ instance MonoLookup TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Tree a) where
     {-# INLINE olookup #-}
 
@@ -1403,7 +1398,7 @@ instance MonoLookup (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (Vector a) where
     {-# INLINE olookup #-}
 
@@ -1411,7 +1406,7 @@ instance MonoLookup (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoLookup (VU.Vector a) where
     {-# INLINE olookup #-}
 
@@ -1419,7 +1414,7 @@ instance VU.Unbox a => MonoLookup (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoLookup (VS.Vector a) where
     {-# INLINE olookup #-}
 
@@ -1427,7 +1422,7 @@ instance VS.Storable a => MonoLookup (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (ViewL a) where
     {-# INLINE olookup #-}
 
@@ -1436,7 +1431,7 @@ instance MonoLookup (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (ViewR a) where
     {-# INLINE olookup #-}
 
@@ -1445,7 +1440,7 @@ instance MonoLookup (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoLookup (ZipList a) where
     {-# INLINE olookup #-}
 
@@ -1456,7 +1451,7 @@ instance MonoLookup (ZipList a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable [a] where
     {-# INLINE oindex #-}
 
@@ -1464,7 +1459,7 @@ instance MonoIndexable [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (a, b) where
     {-# INLINE oindex #-}
 
@@ -1472,7 +1467,7 @@ instance MonoIndexable (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Arg a b) where
     {-# INLINE oindex #-}
 
@@ -1480,7 +1475,7 @@ instance MonoIndexable (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable BS.ByteString where
     {-# INLINE oindex #-}
 
@@ -1491,7 +1486,7 @@ instance MonoIndexable BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable BSL.ByteString where
     {-# INLINE oindex #-}
 
@@ -1502,7 +1497,7 @@ instance MonoIndexable BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Indexable f
          , Indexable g
          , MonoKey (f a) ~ Key f
@@ -1514,7 +1509,7 @@ instance ( Indexable f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Either a b) where
     {-# INLINE oindex #-}
 
@@ -1524,7 +1519,7 @@ instance MonoIndexable (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Eq k, Hashable k) => MonoIndexable (HashMap k v) where
     {-# INLINE oindex #-}
 
@@ -1532,7 +1527,7 @@ instance (Eq k, Hashable k) => MonoIndexable (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (HashSet v) where
     {-# INLINE oindex #-}
 
@@ -1548,7 +1543,7 @@ instance MonoIndexable (HashSet v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Identity a) where
     {-# INLINE oindex #-}
 
@@ -1556,7 +1551,7 @@ instance MonoIndexable (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (IntMap a) where
     {-# INLINE oindex #-}
 
@@ -1564,7 +1559,7 @@ instance MonoIndexable (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable IntSet where
     {-# INLINE oindex #-}
 
@@ -1580,7 +1575,7 @@ instance MonoIndexable IntSet where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord k => MonoIndexable (Map k v) where
     {-# INLINE oindex #-}
 
@@ -1588,7 +1583,7 @@ instance Ord k => MonoIndexable (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Maybe a) where
     {-# INLINE oindex #-}
 
@@ -1596,7 +1591,7 @@ instance MonoIndexable (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (NonEmpty a) where
     {-# INLINE oindex #-}
 
@@ -1604,7 +1599,7 @@ instance MonoIndexable (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Option a) where
     {-# INLINE oindex #-}
 
@@ -1615,7 +1610,7 @@ instance MonoIndexable (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Indexable f
          , Indexable g
          , MonoKey (f a) ~ Key f
@@ -1627,7 +1622,7 @@ instance ( Indexable f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Indexable m => MonoIndexable (ReaderT r m a) where
     {-# INLINE oindex #-}
 
@@ -1635,7 +1630,7 @@ instance Indexable m => MonoIndexable (ReaderT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Seq a) where
     {-# INLINE oindex #-}
 
@@ -1643,7 +1638,7 @@ instance MonoIndexable (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord a => MonoIndexable (Set a) where
     {-# INLINE oindex #-}
 
@@ -1659,7 +1654,7 @@ instance Ord a => MonoIndexable (Set a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable T.Text where
     {-# INLINE oindex #-}
 
@@ -1670,7 +1665,7 @@ instance MonoIndexable T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable TL.Text where
     {-# INLINE oindex #-}
 
@@ -1681,7 +1676,7 @@ instance MonoIndexable TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Tree a) where
     {-# INLINE oindex #-}
 
@@ -1689,7 +1684,7 @@ instance MonoIndexable (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (Vector a) where
     {-# INLINE oindex #-}
 
@@ -1697,7 +1692,7 @@ instance MonoIndexable (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoIndexable (VU.Vector a) where
     {-# INLINE oindex #-}
 
@@ -1705,7 +1700,7 @@ instance VU.Unbox a => MonoIndexable (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoIndexable (VS.Vector a) where
     {-# INLINE oindex #-}
 
@@ -1713,7 +1708,7 @@ instance VS.Storable a => MonoIndexable (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (ViewL a) where
     {-# INLINE oindex #-}
 
@@ -1723,7 +1718,7 @@ instance MonoIndexable (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (ViewR a) where
     {-# INLINE oindex #-}
 
@@ -1733,7 +1728,7 @@ instance MonoIndexable (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoIndexable (ZipList a) where
     {-# INLINE oindex #-}
 
@@ -1744,7 +1739,7 @@ instance MonoIndexable (ZipList a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (r -> a) where
     {-# INLINE oadjust #-}
 
@@ -1752,7 +1747,7 @@ instance MonoAdjustable (r -> a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable [a] where
     {-# INLINE oadjust #-}
 
@@ -1760,7 +1755,7 @@ instance MonoAdjustable [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (a, b) where
     {-# INLINE oadjust #-}
 
@@ -1768,7 +1763,7 @@ instance MonoAdjustable (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Arg a b) where
     {-# INLINE oadjust #-}
 
@@ -1776,7 +1771,7 @@ instance MonoAdjustable (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable BS.ByteString where
     {-# INLINE oadjust #-}
 
@@ -1789,7 +1784,7 @@ instance MonoAdjustable BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable BSL.ByteString where
     {-# INLINE oadjust #-}
 
@@ -1802,7 +1797,7 @@ instance MonoAdjustable BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Const m a) where
     {-# INLINE oadjust #-}
 
@@ -1810,7 +1805,7 @@ instance MonoAdjustable (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (ContT r m a) where
     {-# INLINE oadjust #-}
 
@@ -1818,7 +1813,7 @@ instance Functor m => MonoAdjustable (ContT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Either a b) where
     {-# INLINE oadjust #-}
 
@@ -1826,7 +1821,7 @@ instance MonoAdjustable (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Eq k, Hashable k) => MonoAdjustable (HashMap k v) where
     {-# INLINE oadjust #-}
 
@@ -1838,7 +1833,7 @@ instance (Eq k, Hashable k) => MonoAdjustable (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Identity a) where
     {-# INLINE oadjust #-}
 
@@ -1846,7 +1841,7 @@ instance MonoAdjustable (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (IdentityT m a) where
     {-# INLINE oadjust #-}
 
@@ -1854,7 +1849,7 @@ instance Functor m => MonoAdjustable (IdentityT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (IntMap a) where
     {-# INLINE oadjust #-}
 
@@ -1866,7 +1861,7 @@ instance MonoAdjustable (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (IO a) where
     {-# INLINE oadjust #-}
 
@@ -1874,7 +1869,7 @@ instance MonoAdjustable (IO a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (ListT m a) where
     {-# INLINE oadjust #-}
 
@@ -1882,7 +1877,7 @@ instance Functor m => MonoAdjustable (ListT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord k => MonoAdjustable (Map k v) where
     {-# INLINE oadjust #-}
   
@@ -1890,7 +1885,7 @@ instance Ord k => MonoAdjustable (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Maybe a) where
     {-# INLINE oadjust #-}
 
@@ -1898,7 +1893,7 @@ instance MonoAdjustable (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (MaybeT m a) where
     {-# INLINE oadjust #-}
 
@@ -1906,7 +1901,7 @@ instance Functor m => MonoAdjustable (MaybeT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (NonEmpty a) where
     {-# INLINE oadjust #-}
 
@@ -1914,7 +1909,7 @@ instance MonoAdjustable (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Option a) where
     {-# INLINE oadjust #-}
 
@@ -1922,7 +1917,7 @@ instance MonoAdjustable (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Adjustable f
          , Adjustable g
          , MonoKey (f a) ~ Key f
@@ -1934,7 +1929,7 @@ instance ( Adjustable f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (ReaderT r m a) where
     {-# INLINE oadjust #-}
 
@@ -1942,7 +1937,7 @@ instance Functor m => MonoAdjustable (ReaderT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (RWST r w s m a) where
     {-# INLINE oadjust #-}
 
@@ -1950,7 +1945,7 @@ instance Functor m => MonoAdjustable (RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (S.RWST r w s m a) where
     {-# INLINE oadjust #-}
 
@@ -1958,7 +1953,7 @@ instance Functor m => MonoAdjustable (S.RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Seq a) where
     {-# INLINE oadjust #-}
 
@@ -1970,7 +1965,7 @@ instance MonoAdjustable (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (StateT s m a) where
     {-# INLINE oadjust #-}
 
@@ -1978,7 +1973,7 @@ instance Functor m => MonoAdjustable (StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (S.StateT s m a) where
     {-# INLINE oadjust #-}
 
@@ -1986,7 +1981,7 @@ instance Functor m => MonoAdjustable (S.StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable T.Text where
     {-# INLINE oadjust #-}
 
@@ -1999,7 +1994,7 @@ instance MonoAdjustable T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable TL.Text where
     {-# INLINE oadjust #-}
 
@@ -2012,7 +2007,7 @@ instance MonoAdjustable TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Tree a) where
     {-# INLINE oadjust #-}
 
@@ -2020,7 +2015,7 @@ instance MonoAdjustable (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (Vector a) where
     {-# INLINE oadjust #-}
 
@@ -2028,7 +2023,7 @@ instance MonoAdjustable (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoAdjustable (VU.Vector a) where
     {-# INLINE oadjust #-}
 
@@ -2036,7 +2031,7 @@ instance VU.Unbox a => MonoAdjustable (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoAdjustable (VS.Vector a) where
     {-# INLINE oadjust #-}
 
@@ -2044,7 +2039,7 @@ instance VS.Storable a => MonoAdjustable (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (ViewL a) where
     {-# INLINE oadjust #-}
 
@@ -2052,7 +2047,7 @@ instance MonoAdjustable (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (ViewR a) where
     {-# INLINE oadjust #-}
 
@@ -2060,7 +2055,7 @@ instance MonoAdjustable (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Arrow a => MonoAdjustable (WrappedArrow a b c) where
     {-# INLINE oadjust #-}
 
@@ -2068,7 +2063,7 @@ instance Arrow a => MonoAdjustable (WrappedArrow a b c) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Monad m => MonoAdjustable (WrappedMonad m a) where
     {-# INLINE oadjust #-}
 
@@ -2076,7 +2071,7 @@ instance Monad m => MonoAdjustable (WrappedMonad m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (WriterT w m a) where
     {-# INLINE oadjust #-}
 
@@ -2084,7 +2079,7 @@ instance Functor m => MonoAdjustable (WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoAdjustable (S.WriterT w m a) where
     {-# INLINE oadjust #-}
 
@@ -2092,7 +2087,7 @@ instance Functor m => MonoAdjustable (S.WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoAdjustable (ZipList a) where
     {-# INLINE oadjust #-}
 
@@ -2103,7 +2098,7 @@ instance MonoAdjustable (ZipList a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (r -> a) where
     {-# INLINE ozipWith #-}
 
@@ -2111,7 +2106,7 @@ instance MonoZip (r -> a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip [a] where
     {-# INLINE ozipWith #-}
 
@@ -2119,7 +2114,7 @@ instance MonoZip [a] where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (a, b) where
     {-# INLINE ozipWith #-}
 
@@ -2127,7 +2122,7 @@ instance MonoZip (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Arg a b) where
     {-# INLINE ozipWith #-}
 
@@ -2135,7 +2130,7 @@ instance MonoZip (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip BS.ByteString where
     {-# INLINE ozipWith #-}
 
@@ -2143,7 +2138,7 @@ instance MonoZip BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip BSL.ByteString where
     {-# INLINE ozipWith #-}
 
@@ -2151,7 +2146,7 @@ instance MonoZip BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Zip f
          , Zip g
          , MonoKey (f a) ~ Key f
@@ -2163,7 +2158,7 @@ instance ( Zip f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Const m a) where
     {-# INLINE ozipWith #-}
 
@@ -2171,7 +2166,7 @@ instance MonoZip (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoZip (ContT r m a) where
     {-# INLINE ozipWith #-}
 
@@ -2179,7 +2174,7 @@ instance Functor m => MonoZip (ContT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Either a b) where
     {-# INLINE ozipWith #-}
 
@@ -2187,7 +2182,7 @@ instance MonoZip (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Eq k, Hashable k) => MonoZip (HashMap k v) where
     {-# INLINE ozipWith #-}
 
@@ -2199,7 +2194,7 @@ instance (Eq k, Hashable k) => MonoZip (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Identity a) where
     {-# INLINE ozipWith #-}
 
@@ -2207,7 +2202,7 @@ instance MonoZip (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (IdentityT m a) where
     {-# INLINE ozipWith #-}
 
@@ -2215,7 +2210,7 @@ instance Applicative m => MonoZip (IdentityT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (IntMap a) where
     {-# INLINE ozipWith #-}
 
@@ -2227,7 +2222,7 @@ instance MonoZip (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (IO a) where
     {-# INLINE ozipWith #-}
 
@@ -2235,7 +2230,7 @@ instance MonoZip (IO a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (ListT m a) where
     {-# INLINE ozipWith #-}
 
@@ -2243,7 +2238,7 @@ instance Applicative m => MonoZip (ListT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord k => MonoZip (Map k v) where
     {-# INLINE ozipWith #-}
 
@@ -2251,7 +2246,7 @@ instance Ord k => MonoZip (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Maybe a) where
     {-# INLINE ozipWith #-}
 
@@ -2259,7 +2254,7 @@ instance MonoZip (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (MaybeT m a) where
     {-# INLINE ozipWith #-}
 
@@ -2267,7 +2262,7 @@ instance Applicative m => MonoZip (MaybeT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (NonEmpty a) where
     {-# INLINE ozipWith #-}
 
@@ -2275,7 +2270,7 @@ instance MonoZip (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Option a) where
     {-# INLINE ozipWith #-}
 
@@ -2283,7 +2278,7 @@ instance MonoZip (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( Zip f
          , Zip g
          , MonoKey (f a) ~ Key f
@@ -2295,7 +2290,7 @@ instance ( Zip f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (ReaderT r m a) where
     {-# INLINE ozipWith #-}
 
@@ -2303,7 +2298,7 @@ instance Applicative m => MonoZip (ReaderT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Semigroup w) => MonoZip (RWST r w s m a) where
     {-# INLINE ozipWith #-}
 
@@ -2313,7 +2308,7 @@ instance (Applicative m, Semigroup w) => MonoZip (RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Semigroup w) => MonoZip (S.RWST r w s m a) where
     {-# INLINE ozipWith #-}
 
@@ -2323,7 +2318,7 @@ instance (Applicative m, Semigroup w) => MonoZip (S.RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Seq a) where
     {-# INLINE ozipWith #-}
 
@@ -2335,7 +2330,7 @@ instance MonoZip (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (StateT s m a) where
     {-# INLINE ozipWith #-}
 
@@ -2345,7 +2340,7 @@ instance Applicative m => MonoZip (StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZip (S.StateT s m a) where
     {-# INLINE ozipWith #-}
 
@@ -2355,7 +2350,7 @@ instance Applicative m => MonoZip (S.StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip T.Text where
     {-# INLINE ozipWith #-}
 
@@ -2363,7 +2358,7 @@ instance MonoZip T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip TL.Text where
     {-# INLINE ozipWith #-}
 
@@ -2371,7 +2366,7 @@ instance MonoZip TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Tree a) where
     {-# INLINE ozipWith #-}
 
@@ -2379,7 +2374,7 @@ instance MonoZip (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (Vector a) where
     {-# INLINE ozipWith #-}
 
@@ -2387,7 +2382,7 @@ instance MonoZip (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoZip (VU.Vector a) where
     {-# INLINE ozipWith #-}
 
@@ -2395,7 +2390,7 @@ instance VU.Unbox a => MonoZip (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoZip (VS.Vector a) where
     {-# INLINE ozipWith #-}
 
@@ -2403,7 +2398,7 @@ instance VS.Storable a => MonoZip (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (ViewL a) where
     {-# INLINE ozipWith #-}
 
@@ -2413,7 +2408,7 @@ instance MonoZip (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (ViewR a) where
     {-# INLINE ozipWith #-}
 
@@ -2423,7 +2418,7 @@ instance MonoZip (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Arrow a => MonoZip (WrappedArrow a b c) where
     {-# INLINE ozipWith #-}
 
@@ -2431,7 +2426,7 @@ instance Arrow a => MonoZip (WrappedArrow a b c) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Monad m => MonoZip (WrappedMonad m a) where
     {-# INLINE ozipWith #-}
 
@@ -2439,7 +2434,7 @@ instance Monad m => MonoZip (WrappedMonad m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Monoid w) => MonoZip (WriterT w m a) where
     {-# INLINE ozipWith #-}
 
@@ -2447,7 +2442,7 @@ instance (Applicative m, Monoid w) => MonoZip (WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Monoid w) => MonoZip (S.WriterT w m a) where
     {-# INLINE ozipWith #-}
 
@@ -2455,7 +2450,7 @@ instance (Applicative m, Monoid w) => MonoZip (S.WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZip (ZipList a) where
     {-# INLINE ozipWith #-}
 
@@ -2466,7 +2461,7 @@ instance MonoZip (ZipList a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (r -> a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2474,14 +2469,14 @@ instance MonoZipWithKey (r -> a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey [a] where
     {-# INLINE ozipWithKey #-}
 
     ozipWithKey = zipWithKey
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (a, b) where
     {-# INLINE ozipWithKey #-}
 
@@ -2489,7 +2484,7 @@ instance MonoZipWithKey (a, b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Arg a b) where
     {-# INLINE ozipWithKey #-}
 
@@ -2497,7 +2492,7 @@ instance MonoZipWithKey (Arg a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey BS.ByteString where
     {-# INLINE ozipWithKey #-}
 
@@ -2505,7 +2500,7 @@ instance MonoZipWithKey BS.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey BSL.ByteString where
     {-# INLINE ozipWithKey #-}
 
@@ -2513,7 +2508,7 @@ instance MonoZipWithKey BSL.ByteString where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( ZipWithKey f
          , ZipWithKey g
          , MonoKey (f a) ~ Key f
@@ -2525,7 +2520,7 @@ instance ( ZipWithKey f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Const m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2533,7 +2528,7 @@ instance MonoZipWithKey (Const m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Functor m => MonoZipWithKey (ContT r m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2541,7 +2536,7 @@ instance Functor m => MonoZipWithKey (ContT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Either a b) where
     {-# INLINE ozipWithKey #-}
 
@@ -2549,7 +2544,7 @@ instance MonoZipWithKey (Either a b) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Eq k, Hashable k) => MonoZipWithKey (HashMap k v) where
     {-# INLINE ozipWithKey #-}
 
@@ -2561,7 +2556,7 @@ instance (Eq k, Hashable k) => MonoZipWithKey (HashMap k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Identity a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2569,7 +2564,7 @@ instance MonoZipWithKey (Identity a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZipWithKey (IdentityT m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2577,7 +2572,7 @@ instance Applicative m => MonoZipWithKey (IdentityT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (IntMap a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2589,7 +2584,7 @@ instance MonoZipWithKey (IntMap a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (IO a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2597,7 +2592,7 @@ instance MonoZipWithKey (IO a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZipWithKey (ListT m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2605,7 +2600,7 @@ instance Applicative m => MonoZipWithKey (ListT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Ord k => MonoZipWithKey (Map k v) where
     {-# INLINE ozipWithKey #-}
 
@@ -2613,7 +2608,7 @@ instance Ord k => MonoZipWithKey (Map k v) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Maybe a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2621,7 +2616,7 @@ instance MonoZipWithKey (Maybe a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Monad m => MonoZipWithKey (MaybeT m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2629,7 +2624,7 @@ instance Monad m => MonoZipWithKey (MaybeT m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (NonEmpty a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2637,7 +2632,7 @@ instance MonoZipWithKey (NonEmpty a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Option a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2645,7 +2640,7 @@ instance MonoZipWithKey (Option a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance ( ZipWithKey f
          , ZipWithKey g
          , MonoKey (f a) ~ Key f
@@ -2657,7 +2652,7 @@ instance ( ZipWithKey f
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, ZipWithKey m) => MonoZipWithKey (ReaderT r m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2665,7 +2660,7 @@ instance (Applicative m, ZipWithKey m) => MonoZipWithKey (ReaderT r m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Semigroup w) => MonoZipWithKey (RWST r w s m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2675,7 +2670,7 @@ instance (Applicative m, Semigroup w) => MonoZipWithKey (RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Semigroup w) => MonoZipWithKey (S.RWST r w s m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2685,7 +2680,7 @@ instance (Applicative m, Semigroup w) => MonoZipWithKey (S.RWST r w s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Seq a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2697,7 +2692,7 @@ instance MonoZipWithKey (Seq a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZipWithKey (StateT s m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2707,7 +2702,7 @@ instance Applicative m => MonoZipWithKey (StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Applicative m => MonoZipWithKey (S.StateT s m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2717,7 +2712,7 @@ instance Applicative m => MonoZipWithKey (S.StateT s m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey T.Text where
     {-# INLINE ozipWithKey #-}
 
@@ -2725,7 +2720,7 @@ instance MonoZipWithKey T.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey TL.Text where
     {-# INLINE ozipWithKey #-}
 
@@ -2733,7 +2728,7 @@ instance MonoZipWithKey TL.Text where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Tree a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2741,7 +2736,7 @@ instance MonoZipWithKey (Tree a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (Vector a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2749,7 +2744,7 @@ instance MonoZipWithKey (Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VU.Unbox a => MonoZipWithKey (VU.Vector a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2757,7 +2752,7 @@ instance VU.Unbox a => MonoZipWithKey (VU.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance VS.Storable a => MonoZipWithKey (VS.Vector a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2765,7 +2760,7 @@ instance VS.Storable a => MonoZipWithKey (VS.Vector a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (ViewL a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2775,7 +2770,7 @@ instance MonoZipWithKey (ViewL a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (ViewR a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2785,7 +2780,7 @@ instance MonoZipWithKey (ViewR a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Arrow a => MonoZipWithKey (WrappedArrow a b c) where
     {-# INLINE ozipWithKey #-}
 
@@ -2793,7 +2788,7 @@ instance Arrow a => MonoZipWithKey (WrappedArrow a b c) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance Monad m => MonoZipWithKey (WrappedMonad m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2801,7 +2796,7 @@ instance Monad m => MonoZipWithKey (WrappedMonad m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Monoid w) => MonoZipWithKey (WriterT w m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2809,7 +2804,7 @@ instance (Applicative m, Monoid w) => MonoZipWithKey (WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance (Applicative m, Monoid w) => MonoZipWithKey (S.WriterT w m a) where
     {-# INLINE ozipWithKey #-}
 
@@ -2817,7 +2812,7 @@ instance (Applicative m, Monoid w) => MonoZipWithKey (S.WriterT w m a) where
 
 
 -- |
--- /Since @v0.1.0@/ 
+-- @since 0.1.0 
 instance MonoZipWithKey (ZipList a) where
     {-# INLINE ozipWithKey #-}
   
@@ -2828,7 +2823,7 @@ instance MonoZipWithKey (ZipList a) where
 
 
 -- |
--- /Since @v0.1.0@/
+-- @since 0.1.0
 --
 -- A strict left fold, together with an unwrap function.
 --
@@ -2842,7 +2837,7 @@ ofoldlWithKeyUnwrap :: MonoFoldableWithKey mono
 ofoldlWithKeyUnwrap f x unwrap mono = unwrap (ofoldl' f x mono)
 
 -- |
--- /Since @v0.1.0@/
+-- @since 0.1.0
 --
 -- A monadic strict left fold, together with an unwrap function.
 --

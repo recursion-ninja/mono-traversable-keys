@@ -15,11 +15,11 @@ ghc:
   - "7.10.3"
 
 install:
-  - cabal new-configure
-  - cabal new-install --only-dependencies
+  - /opt/cabal/bin/cabal-2.2 new-configure
+  - /opt/cabal/bin/cabal-2.2 new-install --only-dependencies
 
 script:
-  - cabal new-build
-  - cabal new-sdist
-  - cabal new-check
-  - cabal new-haddock
+  - /opt/cabal/bin/cabal-2.2 new-build
+  - /opt/cabal/bin/cabal-2.2 new-sdist
+  - /opt/cabal/bin/cabal-2.2 new-check
+  - /opt/cabal/bin/cabal-2.2 new-haddock
