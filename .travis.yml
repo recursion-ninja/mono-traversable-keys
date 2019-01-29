@@ -16,7 +16,7 @@ ghc:
 
 install:
   - /opt/cabal/bin/cabal-2.2 new-configure
-  - /opt/cabal/bin/cabal-2.2 new-install --only-dependencies
+  - /opt/cabal/bin/cabal-2.2 new-install --only-dependencies || true
 
 script:
   - /opt/cabal/bin/cabal-2.2 new-build
