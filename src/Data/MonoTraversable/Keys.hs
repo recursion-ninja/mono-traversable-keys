@@ -2906,25 +2906,3 @@ monoLookupFoldable i t
     go  _    []  = Nothing
     go  0   [x]  = Just x
     go !n (_:xs) = go (n-1) xs
-
-
-{-
-monoZipWithIntegralKey
-  :: ( Integral i, MonoTraversable mono)
-  => (i -> Element mono -> Element mono -> Element mono) -> mono -> mono -> mono
-monoZipWithIntegralKey f as bs = (`S.evalState` (0, otoList xs)) $ otraverse g ys
-  where
-    (xs, ys, swapped)
-      | olength xs >= olength ys = (as, bs, False)
-      | otherwise                = (bs, as, True )
-
-    g y = do
-        (!k, v) <- S.get
-        case v of
-          []   -> pure y
-          z:zs -> do
-              S.put ((k+1), zs)
-              pure . f k $ if swapped
-                           then y z
-                           else z y
--}
