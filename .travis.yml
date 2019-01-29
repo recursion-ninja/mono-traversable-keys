@@ -9,10 +9,12 @@ ghc:
   - "8.0.2"
   - "7.10.3"
 
-script:
+install:
   - cabal new-configure
   - cabal new-install --only-dependencies
-  - cabal new-sdist
+
+script:
   - cabal new-build
+  - cabal new-sdist
   - cabal new-check
   - cabal new-haddock
