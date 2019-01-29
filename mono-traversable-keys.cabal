@@ -1,15 +1,24 @@
 cabal-version: 1.12
+
 name:           mono-traversable-keys
-version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/mono-traversable-keys#readme>
-homepage:       https://github.com/recursion-ninja/mono-traversable-keys#readme
-bug-reports:    https://github.com/recursion-ninja/mono-traversable-keys/issues
-author:         Alex Washburn
-maintainer:     hackage@recursion.ninja
-copyright:      2019 Alex Washburn
+version:        0.1.0
+synopsis:       Type classes for interacting with monomorphic containers with a key
+category:       Containers, Data, Data Structures
+build-type:     Simple
 license:        BSD3
 license-file:   LICENSE
-build-type:     Simple
+copyright:      (c) Alex Washburn 2019
+author:         Alex Washburn
+maintainer:     hackage@recursion.ninja
+homepage:       https://github.com/recursion-ninja/mono-traversable-keys#readme
+bug-reports:    https://github.com/recursion-ninja/mono-traversable-keys/issues
+description:
+  This is the extension of two other popular packages,
+  <http://hackage.haskell.org/package/mono-traversable mono-traversable> and
+  <http://hackage.haskell.org/package/keys keys>,
+  designed to provided the functionality of the @keys@ package to the monomorphic
+  containers enhanced by the @mono-trversable@ package.
+
 extra-source-files:
     README.md
     CHANGELOG.md
@@ -18,6 +27,13 @@ source-repository head
   type: git
   location: https://github.com/recursion-ninja/mono-traversable-keys
 
+tested-with:
+  GHC == 8.6.2
+  GHC == 8.4.4
+  GHC == 8.2.2
+  GHC == 8.0.2
+  GHC == 7.10.3
+  
 library
 
   build-depends:
