@@ -2175,7 +2175,7 @@ instance MonoZip (Const m a) where
 instance Functor m => MonoZip (ContT r m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2183,7 +2183,7 @@ instance Functor m => MonoZip (ContT r m a) where
 instance MonoZip (Either a b) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2211,7 +2211,7 @@ instance MonoZip (Identity a) where
 instance Applicative m => MonoZip (IdentityT m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2231,7 +2231,7 @@ instance MonoZip (IntMap a) where
 instance MonoZip (IO a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y 
+    ozipWith = liftA2 
 
 
 -- |
@@ -2255,7 +2255,7 @@ instance Ord k => MonoZip (Map k v) where
 instance MonoZip (Maybe a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2279,7 +2279,7 @@ instance MonoZip (NonEmpty a) where
 instance MonoZip (Option a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2299,7 +2299,7 @@ instance ( Zip f
 instance Applicative m => MonoZip (ReaderT r m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2427,7 +2427,7 @@ instance MonoZip (ViewR a) where
 instance Arrow a => MonoZip (WrappedArrow a b c) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2435,7 +2435,7 @@ instance Arrow a => MonoZip (WrappedArrow a b c) where
 instance Monad m => MonoZip (WrappedMonad m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2443,7 +2443,7 @@ instance Monad m => MonoZip (WrappedMonad m a) where
 instance (Applicative m, Monoid w) => MonoZip (WriterT w m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2451,7 +2451,7 @@ instance (Applicative m, Monoid w) => MonoZip (WriterT w m a) where
 instance (Applicative m, Monoid w) => MonoZip (S.WriterT w m a) where
     {-# INLINE ozipWith #-}
 
-    ozipWith f x y = f <$> x <*> y
+    ozipWith = liftA2
 
 
 -- |
@@ -2537,7 +2537,7 @@ instance MonoZipWithKey (Const m a) where
 instance Functor m => MonoZipWithKey (ContT r m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2545,7 +2545,7 @@ instance Functor m => MonoZipWithKey (ContT r m a) where
 instance MonoZipWithKey (Either a b) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2573,7 +2573,7 @@ instance MonoZipWithKey (Identity a) where
 instance Applicative m => MonoZipWithKey (IdentityT m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2593,7 +2593,7 @@ instance MonoZipWithKey (IntMap a) where
 instance MonoZipWithKey (IO a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2617,7 +2617,7 @@ instance Ord k => MonoZipWithKey (Map k v) where
 instance MonoZipWithKey (Maybe a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2625,7 +2625,7 @@ instance MonoZipWithKey (Maybe a) where
 instance Monad m => MonoZipWithKey (MaybeT m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2641,7 +2641,7 @@ instance MonoZipWithKey (NonEmpty a) where
 instance MonoZipWithKey (Option a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = (f ()) <$> x <*> y
+    ozipWithKey f = liftA2 (f ())
 
 
 -- |
@@ -2789,7 +2789,7 @@ instance MonoZipWithKey (ViewR a) where
 instance Arrow a => MonoZipWithKey (WrappedArrow a b c) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = f () <$> x <*> y
+    ozipWithKey f = liftA2 $ f ()
 
 
 -- |
@@ -2797,7 +2797,7 @@ instance Arrow a => MonoZipWithKey (WrappedArrow a b c) where
 instance Monad m => MonoZipWithKey (WrappedMonad m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = f () <$> x <*> y
+    ozipWithKey f = liftA2 $ f ()
 
 
 -- |
@@ -2805,7 +2805,7 @@ instance Monad m => MonoZipWithKey (WrappedMonad m a) where
 instance (Applicative m, Monoid w) => MonoZipWithKey (WriterT w m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = f () <$> x <*> y
+    ozipWithKey f = liftA2 $ f ()
 
 
 -- |
@@ -2813,7 +2813,7 @@ instance (Applicative m, Monoid w) => MonoZipWithKey (WriterT w m a) where
 instance (Applicative m, Monoid w) => MonoZipWithKey (S.WriterT w m a) where
     {-# INLINE ozipWithKey #-}
 
-    ozipWithKey f x y = f () <$> x <*> y
+    ozipWithKey f = liftA2 $ f ()
 
 
 -- |
