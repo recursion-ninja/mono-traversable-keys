@@ -20,8 +20,8 @@ description:
   containers enhanced by the @mono-trversable@ package.
 
 extra-source-files:
-    README.md
-    CHANGELOG.md
+  README.md
+  CHANGELOG.md
 
 source-repository head
   type: git
@@ -98,4 +98,3 @@ library
 
   hs-source-dirs:
       src
-
