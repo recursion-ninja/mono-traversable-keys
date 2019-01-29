@@ -1,0 +1,18 @@
+language: haskell
+
+dist: xenial
+
+ghc:
+  - "8.6.3"
+  - "8.4.4"
+  - "8.2.2"
+  - "8.0.2"
+  - "7.10.3"
+
+script:
+  - cabal new-configure
+  - cabal new-install --only-dependencies
+  - cabal new-sdist
+  - cabal new-build
+  - cabal new-check
+  - cabal new-haddock
