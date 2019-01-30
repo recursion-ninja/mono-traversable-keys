@@ -16,10 +16,7 @@ ghc:
 
 install:
   - /opt/cabal/bin/cabal-2.2 new-configure
-  - /opt/cabal/bin/cabal-2.2 new-install --only-dependencies || true
 
 script:
   - /opt/cabal/bin/cabal-2.2 new-build
-  - /opt/cabal/bin/cabal-2.2 new-sdist
-  - /opt/cabal/bin/cabal-2.2 new-check
   - /opt/cabal/bin/cabal-2.2 new-haddock
