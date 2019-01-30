@@ -1,6 +1,12 @@
-# mono-traversable-keys
+## Type-classes for interacting with monomorphic containers with a key
 
-Provides type-classes for interacting with monomorphic containers in the following was:
+[![Build Status](https://travis-ci.org/recursion-ninja/mono-traversable-keys.svg?branch=master)](https://travis-ci.org/recursion-ninja/mono-traversable-keys)
+[![License FreeBSD](https://img.shields.io/badge/license-FreeBSD-brightgreen.svg)](http://opensource.org/licenses/BSD-3-Clause)
+[![Hackage](https://img.shields.io/hackage/v/mono-traversable-keys.svg?style=flat)](https://hackage.haskell.org/package/mono-traversable-keys)
+[![Stackage Nightly](http://stackage.org/package/mono-traversable-keys/badge/nightly)](http://stackage.org/nightly/package/mono-traversable-keys)
+[![Stackage LTS](http://stackage.org/package/mono-traversable-keys/badge/lts)](http://stackage.org/lts/package/mono-traversable-keys)
+
+Provides type-classes for interacting with monomorphic containers in the following ways:
 
  * zipping
  * adjusting an element at a key
