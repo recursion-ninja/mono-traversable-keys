@@ -23,17 +23,17 @@ extra-source-files:
   README.md
   CHANGELOG.md
 
-source-repository head
-  type: git
-  location: https://github.com/recursion-ninja/mono-traversable-keys
-
 tested-with:
-  GHC == 8.6.2
+  GHC == 8.6.3
   GHC == 8.4.4
   GHC == 8.2.2
   GHC == 8.0.2
   GHC == 7.10.3
   
+source-repository head
+  type: git
+  location: https://github.com/recursion-ninja/mono-traversable-keys
+
 library
 
   build-depends:
@@ -61,40 +61,36 @@ library
       -O2
       -fexpose-all-unfoldings
       -foptimal-applicative-do
-      -fspecialize-aggressively
-      -- Usability flags
-      -fdiagnostics-color=always
-      -fhide-source-paths
+      -fspecialise-aggressively
       -j
       -- Sanity check warnings
       -Wall
       -Wcompat
-      -Wdodgy-foreign-imports
-      -Wduplicate-exports
-      -Wempty-enumerations
-      -Widentities
-      -Wincomplete-patterns
-      -Wincomplete-record-updates
-      -Wincomplete-uni-patterns
-      -Wmissing-fields
-      -Wmissing-home-modules
-      -Wmissing-monadfail-instances
-      -Wmissing-signatures
-      -Wnoncanonical-monadfail-instances
-      -Wnoncanonical-monad-instances
-      -Wnoncanonical-monoid-instances
-      -Woverflowed-literals
-      -Woverlapping-patterns
-      -Wredundant-constraints
-      -Wsemigroup
-      -Wtabs
-      -Wunrecognised-warning-flags
-      -Wunused-binds
-      -Wunused-do-bind
-      -Wunused-foralls
-      -Wunused-imports
-      -Wunused-matches
-      -Wwrong-do-bind
+      -fwarn-dodgy-foreign-imports
+      -fwarn-duplicate-exports
+      -fwarn-empty-enumerations
+      -fwarn-identities
+      -fwarn-incomplete-patterns
+      -fwarn-incomplete-record-updates
+      -fwarn-incomplete-uni-patterns
+      -fwarn-missing-fields
+      -fwarn-missing-monadfail-instances
+      -fwarn-missing-signatures
+      -fwarn-noncanonical-monadfail-instances
+      -fwarn-noncanonical-monad-instances
+      -fwarn-noncanonical-monoid-instances
+      -fwarn-overflowed-literals
+      -fwarn-overlapping-patterns
+      -fwarn-redundant-constraints
+      -fwarn-semigroup
+      -fwarn-tabs
+      -fwarn-unrecognised-warning-flags
+      -fwarn-unused-binds
+      -fwarn-unused-do-bind
+      -fwarn-unused-foralls
+      -fwarn-unused-imports
+      -fwarn-unused-matches
+      -fwarn-wrong-do-bind
 
   hs-source-dirs:
       src
