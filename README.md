@@ -11,4 +11,4 @@ Provides type-classes for interacting with monomorphic containers in the followi
  * traversing with a key
  * zipping with a key
 
-This package is the extension of two other popular libraries, [`mono-traversable`](http://hackage.haskell.org/package/mono-traversable) and [`keys`](http://hackage.haskell.org/package/keys), designed to provided the functionality of the `keys` package to the monomorphic containers enhanced by the `mono-trversable` package.
+This package is the extension of two other popular libraries, [`mono-traversable`](http://hackage.haskell.org/package/mono-traversable) and [`keys`](http://hackage.haskell.org/package/keys), designed to provided the functionality of the `keys` package to the monomorphic containers enhanced by the `mono-traversable` package.

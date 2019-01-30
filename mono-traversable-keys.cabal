@@ -2,7 +2,7 @@ cabal-version: 1.12
 
 name:           mono-traversable-keys
 version:        0.1.0
-synopsis:       Type classes for interacting with monomorphic containers with a key
+synopsis:       Type-classes for interacting with monomorphic containers with a key
 category:       Containers, Data, Data Structures
 build-type:     Simple
 license:        BSD3
@@ -58,10 +58,8 @@ library
 
   ghc-options:
       -- Optimization flags
-      -O2
       -fexpose-all-unfoldings
       -fspecialise-aggressively
-      -j
       -- Sanity check warnings
       -Wall
       -fwarn-dodgy-foreign-imports

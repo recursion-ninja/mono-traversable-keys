@@ -168,7 +168,7 @@ type instance MonoKey (ZipList a)          = Int
 
 -- |
 -- Monomorphic containers that can be mapped over.
-class MonoKeyed mono where
+class MonoFunctor mono => MonoKeyed mono where
 
     -- |
     -- Map over a monomorphic container
