@@ -815,7 +815,7 @@ instance MonoFoldableWithKey (Seq a) where
     {-# INLINE ofoldrWithKey #-}
     {-# INLINE ofoldlWithKey #-}
 
-    ofoldMapWithKey = Seq.foldMapWithIndex
+    ofoldMapWithKey = foldMapWithKey
 
     ofoldrWithKey   = Seq.foldrWithIndex
 
@@ -1957,7 +1957,7 @@ instance Functor m => MonoAdjustable (S.RWST r w s m a) where
 instance MonoAdjustable (Seq a) where
     {-# INLINE oadjust #-}
 
-    oadjust = Seq.adjust'
+    oadjust = adjust
 
 
 -- Cannot instantiate because the adjust might violate the internal structure
