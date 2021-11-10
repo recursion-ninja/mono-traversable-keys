@@ -1,6 +1,11 @@
 # Changelog for mono-traversable-keys
 
-## _0.1.0_ Unreleased changes
+## _0.2.0_
+
+	* Added support for GHC-9.2
+	* Conditional inclusion of many import to support backwards compatability
+
+## _0.1.0_ Initial version
 
 	* Added `MonoAdjustable` type-class and initial instances
 	* Added `MonoIndexable` type-class and initial instances

@@ -15,6 +15,7 @@
 -- been prefixed with @o@. The mnemonic is inherited from 'Data.MonoTraversable'.
 
 {-# LANGUAGE BangPatterns            #-}
+{-# LANGUAGE CPP                     #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE DefaultSignatures       #-}
 {-# LANGUAGE FlexibleContexts        #-}
@@ -45,7 +46,10 @@ module Data.MonoTraversable.Keys
 import           Control.Applicative
 import           Control.Arrow                            (Arrow)
 --import           Control.Comonad.Cofree                   (Cofree(..))
+#if MIN_VERSION_base(4,13,0)
+#else
 import           Control.Monad                            (Monad (..))
+#endif
 --import           Control.Monad.Free
 import           Control.Monad.Trans.Cont                 (ContT)
 import           Control.Monad.Trans.Identity             (IdentityT)
@@ -69,7 +73,10 @@ import           Data.HashMap.Strict                      (HashMap)
 import qualified Data.HashMap.Strict               as HM
 import           Data.HashSet                             (HashSet)
 import qualified Data.HashSet                      as HS
+#if MIN_VERSION_base(4,13,0)
+#else
 import           Data.Int                                 (Int)
+#endif
 import           Data.IntMap                              (IntMap)
 import qualified Data.IntMap                       as IM
 import           Data.IntSet                              (IntSet)
@@ -79,10 +86,23 @@ import           Data.List.NonEmpty                       (NonEmpty(..))
 import           Data.Map                                 (Map)
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
+#if MIN_VERSION_base(4,13,0)
+#else
 import           Data.Monoid                              (Monoid(..))
+#endif
 import           Data.MonoTraversable                     (Element, MonoFoldable(..), MonoFunctor(..), MonoTraversable(..))
 --import           Data.Proxy
-import           Data.Semigroup                           (Semigroup(..), Arg(..), Dual(..), Endo(..), Option(..))
+import           Data.Semigroup                           (
+#if MIN_VERSION_base(4,11,0)
+#else
+                                                           Semigroup(..),
+#endif
+                                                           Arg(..), Dual(..), Endo(..)
+#if MIN_VERSION_base(4,16,0)
+#else
+                                                          , Option(..)
+#endif
+                                                          )
 import           Data.Sequence                            (Seq, ViewL(..), ViewR(..))
 import qualified Data.Sequence                     as Seq
 import           Data.Set                                 (Set)
@@ -136,7 +156,10 @@ type instance MonoKey (Maybe a)            = ()
 type instance MonoKey (MaybeT m a)         = ()
 --type instance MonoKey (M1 i c f a)         = Key (M1 i c f)
 type instance MonoKey (NonEmpty a)         = Int
+#if MIN_VERSION_base(4,16,0)
+#else
 type instance MonoKey (Option a)           = ()
+#endif
 --type instance MonoKey (Par1 a)             = ()
 type instance MonoKey (Product f g a)      = Either (Key f) (Key g)
 --type instance MonoKey (Proxy a)            = Void
@@ -448,12 +471,15 @@ instance Functor m => MonoKeyed (MaybeT m a) where
 instance MonoKeyed (NonEmpty a)
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoKeyed (Option a) where
     {-# INLINE omapWithKey #-}
 
     omapWithKey = omapWithUnitKey
+#endif
 
 
 -- |
@@ -782,12 +808,15 @@ instance MonoFoldableWithKey (NonEmpty a) where
     ofoldlWithKey   = monoFoldableWithIntegralKey
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoFoldableWithKey (Option a) where
     {-# INLINE ofoldMapWithKey #-}
 
     ofoldMapWithKey = monoFoldableWithUnitKey
+#endif
 
 
 -- |
@@ -1069,12 +1098,15 @@ instance MonoTraversableWithKey (NonEmpty a) where
     otraverseWithKey = traverseWithKey
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoTraversableWithKey (Option a) where
     {-# INLINE otraverseWithKey #-}
 
     otraverseWithKey = monoTraversableWithUnitKey
+#endif
 
 
 -- |
@@ -1323,12 +1355,15 @@ instance MonoLookup (NonEmpty a) where
     olookup = lookup
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoLookup (Option a) where
     {-# INLINE olookup #-}
 
     olookup = const getOption
+#endif
 
 
 -- |
@@ -1598,6 +1633,8 @@ instance MonoIndexable (NonEmpty a) where
     oindex = index
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoIndexable (Option a) where
@@ -1607,6 +1644,7 @@ instance MonoIndexable (Option a) where
       where
         errorMessage = error 
             "oindex on empty Option, cannot retreive a value. Consider using olookup instead."
+#endif
 
 
 -- |
@@ -1908,12 +1946,15 @@ instance MonoAdjustable (NonEmpty a) where
     oadjust = adjust
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoAdjustable (Option a) where
     {-# INLINE oadjust #-}
 
     oadjust f = const $ fmap f
+#endif
 
 
 -- |
@@ -2269,12 +2310,15 @@ instance MonoZip (NonEmpty a) where
     ozipWith f (x:|xs) (y :|ys) = f x y :| zipWith f xs ys
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoZip (Option a) where
     {-# INLINE ozipWith #-}
 
     ozipWith = liftA2
+#endif
 
 
 -- |
@@ -2631,12 +2675,15 @@ instance MonoZipWithKey (NonEmpty a) where
     ozipWithKey = zipWithKey
 
 
+#if MIN_VERSION_base(4,16,0)
+#else
 -- |
 -- @since 0.1.0 
 instance MonoZipWithKey (Option a) where
     {-# INLINE ozipWithKey #-}
 
     ozipWithKey f = liftA2 (f ())
+#endif
 
 
 -- |
