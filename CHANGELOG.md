@@ -1,9 +1,16 @@
 # Changelog for mono-traversable-keys
 
+
+## _Unreleased_
+
+	* Added back support for GHC-7.10.3 via `hashable` compatability
+
+
 ## _0.2.0_
 
 	* Added support for GHC-9.2
 	* Conditional inclusion of many import to support backwards compatability
+
 
 ## _0.1.0_ Initial version
 

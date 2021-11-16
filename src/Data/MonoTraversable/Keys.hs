@@ -46,10 +46,6 @@ module Data.MonoTraversable.Keys
 import           Control.Applicative
 import           Control.Arrow                            (Arrow)
 --import           Control.Comonad.Cofree                   (Cofree(..))
-#if MIN_VERSION_base(4,13,0)
-#else
-import           Control.Monad                            (Monad (..))
-#endif
 --import           Control.Monad.Free
 import           Control.Monad.Trans.Cont                 (ContT)
 import           Control.Monad.Trans.Identity             (IdentityT)
@@ -73,10 +69,6 @@ import           Data.HashMap.Strict                      (HashMap)
 import qualified Data.HashMap.Strict               as HM
 import           Data.HashSet                             (HashSet)
 import qualified Data.HashSet                      as HS
-#if MIN_VERSION_base(4,13,0)
-#else
-import           Data.Int                                 (Int)
-#endif
 import           Data.IntMap                              (IntMap)
 import qualified Data.IntMap                       as IM
 import           Data.IntSet                              (IntSet)
@@ -86,10 +78,6 @@ import           Data.List.NonEmpty                       (NonEmpty(..))
 import           Data.Map                                 (Map)
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe
-#if MIN_VERSION_base(4,13,0)
-#else
-import           Data.Monoid                              (Monoid(..))
-#endif
 import           Data.MonoTraversable                     (Element, MonoFoldable(..), MonoFunctor(..), MonoTraversable(..))
 --import           Data.Proxy
 import           Data.Semigroup                           (
