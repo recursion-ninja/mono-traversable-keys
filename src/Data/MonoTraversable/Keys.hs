@@ -49,7 +49,7 @@ import           Control.Arrow                            (Arrow)
 --import           Control.Monad.Free
 import           Control.Monad.Trans.Cont                 (ContT)
 import           Control.Monad.Trans.Identity             (IdentityT)
-import           Control.Monad.Trans.List                 (ListT(..))
+--import           Control.Monad.Trans.List                 (ListT(..))
 import           Control.Monad.Trans.Maybe                (MaybeT(..))
 import           Control.Monad.Trans.Reader               (ReaderT)
 import           Control.Monad.Trans.RWS                  (RWST(..))
@@ -138,7 +138,7 @@ type instance MonoKey (IntMap a)           = Int
 type instance MonoKey IntSet               = Int
 type instance MonoKey (IO a)               = ()
 --type instance MonoKey (K1 i c a)           = Key (K1 i c)
-type instance MonoKey (ListT m a)          = Int
+--type instance MonoKey (ListT m a)          = Int
 type instance MonoKey (Map k v)            = k
 type instance MonoKey (Maybe a)            = ()
 type instance MonoKey (MaybeT m a)         = ()
@@ -428,12 +428,14 @@ instance MonoKeyed (IO a) where
     omapWithKey = omapWithUnitKey
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Functor m => MonoKeyed (ListT m a) where
     {-# INLINE omapWithKey #-}
 
     omapWithKey f = ListT . fmap (omapWithKey f) . runListT
+-}
 
 
 -- |
@@ -750,12 +752,14 @@ instance MonoFoldableWithKey IntSet where
     ofoldlWithKey   = monoFoldableWithIntegralKey
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Foldable f => MonoFoldableWithKey (ListT f a) where
     {-# INLINE ofoldlWithKey #-}
 
     ofoldlWithKey   = monoFoldableWithIntegralKey
+-}
 
 
 -- |
@@ -1047,11 +1051,13 @@ instance MonoTraversableWithKey (IntMap a) where
     otraverseWithKey = traverseWithKey
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Traversable f => MonoTraversableWithKey (ListT f a) where
 
    otraverseWithKey f = fmap ListT . traverse (traverseWithKey f) . runListT
+-}
 
 
 -- |
@@ -1894,12 +1900,14 @@ instance MonoAdjustable (IO a) where
     oadjust f = const $ fmap f
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Functor m => MonoAdjustable (ListT m a) where
     {-# INLINE oadjust #-}
 
     oadjust f i = ListT . fmap (adjust f i) . runListT
+-}
 
 
 -- |
@@ -2258,12 +2266,14 @@ instance MonoZip (IO a) where
     ozipWith = liftA2 
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Applicative m => MonoZip (ListT m a) where
     {-# INLINE ozipWith #-}
 
     ozipWith f x y = ListT $ zipWith f <$> runListT x <*> runListT y
+-}
 
 
 -- |
@@ -2623,12 +2633,14 @@ instance MonoZipWithKey (IO a) where
     ozipWithKey f = liftA2 (f ())
 
 
+{-
 -- |
 -- @since 0.1.0 
 instance Applicative m => MonoZipWithKey (ListT m a) where
     {-# INLINE ozipWithKey #-}
 
     ozipWithKey f x y = ListT $ zipWithKey f <$> runListT x <*> runListT y
+-}
 
 
 -- |

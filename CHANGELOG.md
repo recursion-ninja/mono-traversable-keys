@@ -1,9 +1,12 @@
 # Changelog for mono-traversable-keys
 
 
-## _Unreleased_
+## _0.3.0_
 
+	* Added support for GHC-9.4
+	* Added support for GHC-9.6
 	* Added back support for GHC-7.10.3 via `hashable` compatability
+	* Removed `ListT` instances
 
 
 ## _0.2.0_
